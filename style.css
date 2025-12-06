@@ -1,59 +1,66 @@
+/* BASE STYLES */
 body {
-  font-family: 'Roboto', sans-serif;
-  background: #f3f5f7;
+  font-family: 'Public Sans', sans-serif;
+  background: #f0f2f5;
   margin: 0;
   padding: 40px;
   display: flex;
   justify-content: center;
-  color: #333;
+  color: #0E2638; /* Dark Indigo */
 }
 
 .container {
-  background: white;
+  background: #ffffff;
   padding: 30px;
   border-radius: 12px;
-  width: 700px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  width: 720px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
 }
 
-.logo-wrapper {
+/* HEADER: Title left, Logo right */
+.header-flex {
   display: flex;
-  justify-content: center;
-  margin-bottom: 15px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
 }
 
-.app-logo {
-  height: 40px; /* Reduced logo size */
+.header-flex h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  color: #015684; /* Catalyst */
+}
+
+.header-flex .app-logo {
+  height: 40px;
   object-fit: contain;
 }
 
-h1 {
-  text-align: center;
-  margin-bottom: 10px;
-  font-size: 28px;
-  font-weight: 600;
-}
-
+/* SUB DESCRIPTION */
 .sub-description {
-  text-align: center;
+  text-align: left;
   font-size: 16px;
-  color: #555;
+  color: #0E2638;
   margin-bottom: 25px;
 }
 
+/* STEP BOX */
 .step-box {
   margin-bottom: 35px;
-  padding: 20px;
-  background: #fafafa;
+  padding: 25px;
+  background: #f9f9f9;
   border-radius: 10px;
-  border: 1px solid #e3e3e3;
+  border: 1px solid #e0e0e0;
 }
 
 .step-box h2 {
   font-size: 20px;
   margin-bottom: 15px;
+  color: #015684;
 }
 
+/* BULLET POINTS */
 .color-bullets {
   list-style: none;
   padding: 0;
@@ -80,21 +87,23 @@ h1 {
 .legend.green { background: #c6efce; }
 .legend.white { background: white; }
 
+/* DOWNLOAD TEMPLATE BUTTON */
 .download-template {
   display: inline-block;
-  background: #0052cc;
+  background: #015684; /* Catalyst */
   color: white;
-  padding: 10px 16px;
+  padding: 10px 18px;
   border-radius: 6px;
   text-decoration: none;
   font-weight: 500;
 }
 
+/* FILE UPLOAD */
 .file-upload-label {
   display: inline-block;
-  background: #4caf50;
+  background: #015684;
   color: white;
-  padding: 10px 16px;
+  padding: 10px 18px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
@@ -105,11 +114,12 @@ h1 {
   display: none;
 }
 
+/* CONVERT BUTTON */
 .convert-btn {
   display: inline-block;
-  background: #ff9800;
+  background: #0E2638; /* Dark Indigo */
   color: white;
-  padding: 10px 16px;
+  padding: 10px 18px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
@@ -121,14 +131,16 @@ h1 {
   opacity: 0.9;
 }
 
+/* DOWNLOAD JSONL */
 .download-jsonl {
   display: block;
   margin-top: 20px;
   font-weight: 500;
-  color: #0052cc;
+  color: #015684;
   text-decoration: none;
 }
 
+/* OUTPUT PREVIEW */
 pre {
   margin-top: 20px;
   background: #272822;
@@ -137,4 +149,5 @@ pre {
   border-radius: 6px;
   max-height: 250px;
   overflow-y: auto;
+  font-size: 13px;
 }
