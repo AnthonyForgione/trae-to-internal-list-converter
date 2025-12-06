@@ -5,13 +5,17 @@ const convertBtn = document.getElementById('convertBtn');
 const downloadLink = document.getElementById('downloadLink');
 const outputPre = document.getElementById('output');
 
+// Progress bar
+const progressContainer = document.createElement('div');
+progressContainer.style.width = "100%";
+progressContainer.style.background = "#ddd";
+progressContainer.style.marginTop = "10px";
 const progressBar = document.createElement('div');
-progressBar.id = "progress-bar";
 progressBar.style.width = "0%";
 progressBar.style.height = "20px";
 progressBar.style.background = "#4caf50";
-progressBar.style.marginTop = "10px";
-fileInput.parentNode.insertBefore(progressBar, convertBtn);
+progressContainer.appendChild(progressBar);
+fileInput.parentNode.insertBefore(progressContainer, convertBtn);
 
 // --- Country name mapping (Python fix included)
 const country_name_map = {
@@ -56,13 +60,8 @@ function countryToISO(country){
     if(!country) return null;
     const cstr = country.toString().trim();
     const lookup = country_name_map[cstr.toLowerCase()] || cstr;
-    // Simple prebuilt list for demo (replace with real ISO lookup if needed)
-    try {
-        // Using Intl API for ISO 3166-1 alpha-2
-        return new Intl.DisplayNames(['en'], {type: 'region'}).of(lookup) || lookup;
-    } catch(e){
-        return lookup;
-    }
+    // For simplicity, return the mapped value directly
+    return lookup;
 }
 
 // --- Rename columns like Python
@@ -146,7 +145,7 @@ function cleanRecord(record){
     return record;
 }
 
-// --- Handle conversion
+// --- Convert button
 convertBtn.addEventListener('click',()=>{
     const file = fileInput.files[0];
     if(!file){
@@ -160,50 +159,51 @@ convertBtn.addEventListener('click',()=>{
         const workbook = XLSX.read(data, {type:'array'});
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         let jsonData = XLSX.utils.sheet_to_json(firstSheet, {defval:""});
-        
+
         // --- Rename columns
         jsonData = jsonData.map(renameColumns);
-        
-        const total = jsonData.length;
+
         const outputLines = [];
-        
-        jsonData.forEach((row, idx)=>{
-            // Profile ID prefix
-            if(row.profileId) row.profileId = "TRAE"+row.profileId.toString().trim();
-            // Type conversion
-            if(row.type){
-                const t=row.type.toString().toLowerCase().trim();
-                row.type = t==="entity"?"company": t==="person"?"person": t;
+        let idx = 0;
+        const CHUNK_SIZE = 200; // process 200 rows at a time
+
+        function processChunk(){
+            const end = Math.min(idx + CHUNK_SIZE, jsonData.length);
+            for(let i=idx;i<end;i++){
+                const row = jsonData[i];
+                if(row.profileId) row.profileId = "TRAE"+row.profileId.toString().trim();
+                if(row.type){
+                    const t=row.type.toString().toLowerCase().trim();
+                    row.type = t==="entity"?"company": t==="person"?"person": t;
+                }
+                row.activeStatus="Active";
+                row.dateOfBirthArray = formatDate(row.dateOfBirth);
+                row.addresses = buildAddress(row);
+                row.citizenshipCode = row.countryCode?[row.countryCode]:[];
+                row.residentOfCode = row.countryCode?[row.countryCode]:[];
+                row.countryOfRegistrationCode = row.countryCode?[row.countryCode]:[];
+                row.lists = buildLists(row);
+                outputLines.push(JSON.stringify(cleanRecord(row)));
             }
-            // Always active
-            row.activeStatus="Active";
-            // Dates
-            row.dateOfBirthArray = formatDate(row.dateOfBirth);
-            // Addresses
-            row.addresses = buildAddress(row);
-            // Country codes
-            row.citizenshipCode = row.countryCode?[row.countryCode]:[];
-            row.residentOfCode = row.countryCode?[row.countryCode]:[];
-            row.countryOfRegistrationCode = row.countryCode?[row.countryCode]:[];
-            // Lists
-            row.lists = buildLists(row);
-            // Clean row
-            const clean = cleanRecord(row);
-            outputLines.push(JSON.stringify(clean));
-            
-            // Update progress bar
-            progressBar.style.width = `${Math.floor(((idx+1)/total)*100)}%`;
-        });
-        
-        // --- Prepare download
-        const blob = new Blob([outputLines.join('\n')], {type:'text/plain'});
-        const url = URL.createObjectURL(blob);
-        downloadLink.href = url;
-        downloadLink.download = "output.jsonl";
-        downloadLink.style.display = "inline-block";
-        downloadLink.textContent = "Download JSONL";
-        outputPre.textContent = "Conversion completed! " + total + " records processed.";
-        alert("Conversion completed!");
+            idx = end;
+            progressBar.style.width = `${Math.floor((idx/jsonData.length)*100)}%`;
+
+            if(idx < jsonData.length){
+                setTimeout(processChunk,0);
+            } else {
+                const blob = new Blob([outputLines.join('\n')], {type:'text/plain'});
+                const url = URL.createObjectURL(blob);
+                downloadLink.href = url;
+                downloadLink.download = "output.jsonl";
+                downloadLink.style.display = "inline-block";
+                downloadLink.textContent = "Download JSONL";
+                outputPre.textContent = `Conversion completed! ${jsonData.length} records processed.`;
+                alert("Conversion completed!");
+            }
+        }
+
+        processChunk();
     };
+
     reader.readAsArrayBuffer(file);
 });
