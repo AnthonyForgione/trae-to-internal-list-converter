@@ -1,85 +1,34 @@
-/* Import Public Sans font */
-@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&display=swap');
-
-body {
-  font-family: 'Public Sans', sans-serif;
-  background-color: #f5f7fa; /* light neutral background */
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  min-height: 100vh;
-  padding: 40px 20px;
+.instructions {
+  background-color: #fdf8f2; /* very light background */
+  padding: 15px 20px;
+  border-left: 6px solid #015684; /* Catalyst border for emphasis */
+  border-radius: 6px;
+  margin-bottom: 15px;
+  font-size: 14px;
+  line-height: 1.5;
   color: #0E2638; /* Dark Indigo text */
 }
 
-.container {
-  background: #fff;
-  padding: 30px 40px;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  max-width: 600px;
-  width: 100%;
-}
-
-h2 {
-  text-align: center;
-  margin-bottom: 25px;
-  color: #0E2638; /* Dark Indigo heading */
-  font-weight: 600;
-  font-size: 24px;
-}
-
-input[type="file"] {
-  display: block;
-  width: 100%;
-  padding: 12px;
-  margin-bottom: 20px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  font-size: 14px;
-}
-
-button#convertBtn {
-  display: block;
-  width: 100%;
-  padding: 14px;
-  background-color: #015684; /* Catalyst */
+.instructions span.mandatory {
+  background-color: #FFA500; /* orange highlight */
   color: #fff;
+  padding: 2px 6px;
+  border-radius: 3px;
   font-weight: 500;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.3s, transform 0.2s;
-  margin-bottom: 20px;
 }
 
-button#convertBtn:hover {
-  background-color: #013d5b; /* slightly darker on hover */
-  transform: translateY(-1px);
-}
-
-pre#output {
-  background-color: #f0f3f7;
-  padding: 15px;
-  border-radius: 6px;
-  max-height: 300px;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-size: 14px;
-  border: 1px solid #d1d9e0;
-}
-
-a#downloadLink {
-  display: block;
-  text-align: center;
-  margin-top: 15px;
-  color: #015684; /* Catalyst link color */
-  text-decoration: none;
+.instructions span.person-only {
+  background-color: #28a745; /* green highlight */
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 3px;
   font-weight: 500;
-  font-size: 14px;
 }
 
-a#downloadLink:hover {
-  text-decoration: underline;
+.instructions span.common {
+  background-color: #fff; /* white */
+  color: #0E2638;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
 }
