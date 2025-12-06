@@ -1,155 +1,104 @@
-/* BASE STYLES */
 body {
-  font-family: 'Public Sans', sans-serif;
-  background: #f0f2f5;
-  margin: 0;
-  padding: 40px;
-  display: flex;
-  justify-content: center;
-  color: #0E2638; /* Dark Indigo */
+    font-family: 'Public Sans', sans-serif;
+    background-color: #f4f7fc;
+    margin: 0;
+    padding: 0;
 }
 
 .container {
-  background: #ffffff;
-  padding: 30px;
-  border-radius: 12px;
-  width: 720px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    max-width: 900px;
+    margin: 40px auto;
+    background: #ffffff;
+    padding: 30px 40px;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
 }
 
-/* HEADER: Title left, Logo right */
 .header-flex {
-  display: flex;
-  flex-direction: row;     /* ensure horizontal layout */
-  justify-content: space-between; /* title left, logo right */
-  align-items: center;     /* vertically align title and logo */
-  margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
 }
 
 .header-flex h1 {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 600;
-  color: #015684; /* Catalyst */
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0;
 }
 
-.header-flex .app-logo {
-  height: 40px;      /* fixed height */
-  width: auto;       /* keep aspect ratio */
-  object-fit: contain;
+.app-logo {
+    height: 50px;
 }
 
-/* SUB DESCRIPTION */
 .sub-description {
-  text-align: left;
-  font-size: 16px;
-  color: #0E2638;
-  margin-bottom: 25px;
+    font-size: 16px;
+    margin-bottom: 25px;
+    color: #555;
 }
 
-/* STEP BOX */
 .step-box {
-  margin-bottom: 35px;
-  padding: 25px;
-  background: #f9f9f9;
-  border-radius: 10px;
-  border: 1px solid #e0e0e0;
+    background: #f9fafe;
+    padding: 20px 25px;
+    border-radius: 10px;
+    margin-bottom: 25px;
 }
 
-.step-box h2 {
-  font-size: 20px;
-  margin-bottom: 15px;
-  color: #015684;
+.step-box h2, .step-box h3 {
+    font-weight: 600;
+    margin-bottom: 15px;
 }
 
-/* BULLET POINTS */
-.color-bullets {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 15px 0;
+.information li {
+    margin-bottom: 10px;
 }
 
-.color-bullets li {
-  margin-bottom: 10px;
-  font-size: 15px;
-  display: flex;
-  align-items: center;
-}
-
-.legend {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  margin-right: 10px;
-  display: inline-block;
-  border: 1px solid #ccc;
-}
-
-.legend.orange { background: #ffcc99; }
-.legend.green { background: #c6efce; }
-.legend.white { background: white; }
-
-/* DOWNLOAD TEMPLATE BUTTON */
-.download-template {
-  display: inline-block;
-  background: #015684; /* Catalyst */
-  color: white;
-  padding: 10px 18px;
-  border-radius: 6px;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-/* FILE UPLOAD */
 .file-upload-label {
-  display: inline-block;
-  background: #015684;
-  color: white;
-  padding: 10px 18px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  margin-bottom: 10px;
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #007BFF;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-right: 10px;
+    font-weight: 500;
+}
+
+.file-upload-label:hover {
+    background-color: #0056b3;
 }
 
 #fileInput {
-  display: none;
+    display: none;
 }
 
-/* CONVERT BUTTON */
 .convert-btn {
-  display: inline-block;
-  background: #0E2638; /* Dark Indigo */
-  color: white;
-  padding: 10px 18px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  margin-left: 10px;
-  border: none;
+    padding: 10px 25px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
 }
 
 .convert-btn:hover {
-  opacity: 0.9;
+    background-color: #218838;
 }
 
-/* DOWNLOAD JSONL */
-.download-jsonl {
-  display: block;
-  margin-top: 20px;
-  font-weight: 500;
-  color: #015684;
-  text-decoration: none;
+.status-message {
+    margin-top: 15px;
+    font-weight: 500;
 }
 
-/* OUTPUT PREVIEW */
-pre {
-  margin-top: 20px;
-  background: #272822;
-  color: #f8f8f2;
-  padding: 12px;
-  border-radius: 6px;
-  max-height: 250px;
-  overflow-y: auto;
-  font-size: 13px;
+@media (max-width: 600px) {
+    .header-flex {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .app-logo {
+        margin-top: 10px;
+    }
 }
