@@ -1,60 +1,96 @@
 body {
-    font-family: 'Public Sans', sans-serif;
-    background-color: #f4f7fc;
-    margin: 0;
-    padding: 0;
+  font-family: 'Public Sans', sans-serif;
+  background: #f5f5f5;
+  margin: 0;
+  padding: 0;
 }
 
 .container {
-    max-width: 900px;
-    margin: 40px auto;
-    background: #fff;
-    padding: 30px 40px;
-    border-radius: 12px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+  max-width: 900px;
+  margin: 50px auto;
+  padding: 30px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.1);
 }
 
 .header-flex {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    flex-wrap: wrap;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.header-flex h1 { font-size: 24px; font-weight: 600; margin: 0; }
-.app-logo { height: 50px; }
+h1 {
+  font-size: 24px;
+  color: #333;
+}
 
-.sub-description { font-size: 16px; margin-bottom: 25px; color: #555; }
+.app-logo {
+  max-height: 60px;
+}
 
-.step-box { background: #f9fafe; padding: 20px 25px; border-radius: 10px; margin-bottom: 25px; }
-.step-box h2, .step-box h3 { font-weight: 600; margin-bottom: 15px; }
-.information li { margin-bottom: 10px; }
+.sub-description {
+  color: #555;
+  margin: 10px 0 30px;
+}
+
+.step-box {
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 10px;
+}
 
 .file-upload-label {
-    display: inline-block; padding: 10px 20px; background-color: #007BFF; color: white;
-    border-radius: 6px; cursor: pointer; margin-right: 10px; font-weight: 500;
+  display: inline-block;
+  padding: 10px 20px;
+  background: #007BFF;
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 10px;
 }
-.file-upload-label:hover { background-color: #0056b3; }
-#fileInput { display: none; }
+
+#fileInput {
+  display: none;
+}
 
 .convert-btn {
-    padding: 10px 25px; background-color: #28a745; color: white; border: none; border-radius: 6px;
-    cursor: pointer; font-weight: 500;
+  padding: 10px 25px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-left: 10px;
 }
-.convert-btn:hover { background-color: #218838; }
 
-.status-message { margin-top: 15px; font-weight: 500; }
+.convert-btn:disabled {
+  background: #a3d9a5;
+  cursor: not-allowed;
+}
 
 .progress-container {
-    width: 100%; background-color: #e0e0e0; border-radius: 6px; margin-top: 15px; height: 20px; overflow: hidden;
-}
-.progress-bar {
-    width: 0%; height: 100%; background-color: #28a745; text-align: center; color: white;
-    line-height: 20px; font-weight: 500; transition: width 0.2s;
+  width: 100%;
+  background: #ddd;
+  border-radius: 6px;
+  height: 20px;
+  margin: 15px 0;
+  overflow: hidden;
 }
 
-@media (max-width: 600px) {
-    .header-flex { flex-direction: column; align-items: flex-start; }
-    .app-logo { margin-top: 10px; }
+.progress-bar {
+  width: 0%;
+  height: 100%;
+  background: #28a745;
+  transition: width 0.2s;
+}
+
+.download-jsonl {
+  display: inline-block;
+  padding: 10px 20px;
+  background: #ffc107;
+  color: #333;
+  border-radius: 6px;
+  text-decoration: none;
+  margin-top: 10px;
 }
