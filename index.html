@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>XLS/XLSX → JSONL Converter</title>
+  <title> ASAM Client Import Converter <br> XLS → JSONL</title>
   
   <!-- Google Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
   
   <!-- Link your CSS -->
   <link rel="stylesheet" href="style.css">
@@ -16,13 +16,8 @@
 <body>
 
   <div class="container">
-    <h2>XLS/XLSX → JSONL Converter</h2>
-
-    <div id="dropZone" class="drop-zone">
-      Drag & Drop your Excel file here, or click to select
-      <input type="file" id="fileInput" accept=".xls,.xlsx" hidden>
-    </div>
-
+    <h2>ASAM Client Import Converter <br> XLS → JSONL</h2>
+    <input type="file" id="fileInput" accept=".xls,.xlsx">
     <button id="convertBtn" type="button">Convert</button>
     <pre id="output"></pre>
     <a id="downloadLink" style="display:none;">Download JSONL</a>
