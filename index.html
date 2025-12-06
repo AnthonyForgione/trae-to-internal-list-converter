@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>TRAE XLS FEED CONVERTER</title>
+  <title>TRAE XLS Feed Converter</title>
   
   <!-- Google Font -->
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -17,38 +17,35 @@
 
   <div class="container">
 
-    <!-- HEADER: Title Left, Logo Right -->
-   <!-- HEADER: Title Left, Logo Right -->
-<div class="header-flex">
-  <h1>TRAE XLS FEED CONVERSION TO ASAM INTERNAL LIST</h1>
-  <img src="logo.png" alt="Company Logo" class="app-logo">
-</div>
-<p class="sub-description">
-  Converts the TRAE XLS Feed into JSONL for ASAM Internal List import in JSONL.</p>
+    <!-- HEADER -->
+    <div class="header-flex">
+      <h1>TRAE XLS Feed Conversion to ASAM Internal List</h1>
+      <img src="logo.png" alt="Company Logo" class="app-logo">
+    </div>
+    <p class="sub-description">
+      Converts the TRAE XLS Feed into a JSONL file ready for ASAM Internal List import.
+    </p>
 
-    <!-- Section 1 -->
-    <section class="step-box">
-
-      <h3>What is this converter for</h3>
+    <!-- INFO SECTION -->
+    <section class="step-box info-box">
+      <h2>What is this converter for</h2>
       <ul class="information">
-       <ul>
-        <li>This converter is designed to transform the Trade Restricted Associated Entities Feed from XLS format into a JSONL file ready for internal list upload.</li>
-        <li>If you don’t have access to the Feed, please contact one of the Content Integration Specialists, who can download and share the file with you.</li>
-        <li>Once converted, clients can copy and paste the JSONL content into the API Internal List call to create the internal list.</li>
-      </ul>   
+        <li>Transforms the Trade Restricted Associated Entities Feed from XLS format into JSONL ready for internal list upload.</li>
+        <li>If you don’t have access to the Feed, contact a Content Integration Specialist to download and share the file.</li>
+        <li>After conversion, clients can copy/paste the JSONL content into the API Internal List call to create the list.</li>
+      </ul>
+    </section>
 
-    <!-- STEP 2 -->
-    <section class="step-box">
-      <h2>Step 2: Upload the TRAE feed in XLS format</h2>
+    <!-- UPLOAD & CONVERT SECTION -->
+    <section class="step-box upload-box">
+      <h2>Step 2: Upload the TRAE feed in XLS/XLSX format</h2>
 
       <label for="fileInput" class="file-upload-label">Choose File</label>
       <input type="file" id="fileInput" accept=".xls,.xlsx">
 
       <button id="convertBtn" type="button" class="convert-btn">Convert to JSONL</button>
 
-      <a id="downloadLink" class="download-jsonl" style="display:none;">Download JSONL</a>
-
-      <pre id="output"></pre>
+      <p id="message" class="status-message"></p>
     </section>
 
   </div>
