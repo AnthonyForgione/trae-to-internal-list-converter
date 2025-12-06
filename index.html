@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>ASAM Client Import Converter</title>
+  <title>TRAE XLS FEED CONVERSION TO ASAM INTERNAL LIST</title>
   
   <!-- Google Font -->
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -20,30 +20,28 @@
     <!-- HEADER: Title Left, Logo Right -->
    <!-- HEADER: Title Left, Logo Right -->
 <div class="header-flex">
-  <h1>ASAM Client Import Converter</h1>
+  <h1>TRAE XLS FEED CONVERSION TO ASAM INTERNAL LIST</h1>
   <img src="logo.png" alt="Company Logo" class="app-logo">
 </div>
 <p class="sub-description">
   Convert the XLS template into JSONL for ASAM client import.
 </p>
 
-    <!-- STEP 1 -->
+    <!-- Section 1 -->
     <section class="step-box">
-      <h2>Step 1: Download the Simplified Client Import Template</h2>
+      <h2>Useful information</h2>
 
-      <h3>File Color Code Description</h3>
-      <ul class="color-bullets">
-        <li><span class="legend orange"></span> Orange: Mandatory fields that must be completed.</li>
-        <li><span class="legend green"></span> Green: Fields to be used only when the entity type is “Person.”</li>
-        <li><span class="legend white"></span> White: Common non-mandatory fields or fields used only for the “Organisation” entity type.</li>
+      <h3>What is this converter for</h3>
+      <ul class="information">
+        <li>This converter has been designed to convert the Trade Restricted Associated EntitiesFeed in XLS format to a ready to be uploaded internali list Jsonl file</li>
+        <li>In case you don't have access to the Feed, please reach out to one of the Content Integration Specialist, and they'll download and share the file with you</li>
       </ul>
 
-      <a href="Simplified_Client_Import_Template.xlsx" class="download-template" download>Download XLS Template</a>
-    </section>
+    
 
     <!-- STEP 2 -->
     <section class="step-box">
-      <h2>Step 2: Upload Your Client Data for Import</h2>
+      <h2>Step 2: Upload the TRAE feed in XLS format</h2>
 
       <label for="fileInput" class="file-upload-label">Choose File</label>
       <input type="file" id="fileInput" accept=".xls,.xlsx">
