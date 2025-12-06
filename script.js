@@ -1,209 +1,159 @@
-// script.js
-
 const fileInput = document.getElementById('fileInput');
 const convertBtn = document.getElementById('convertBtn');
+const progressBar = document.getElementById('progressBar');
+const progressText = document.getElementById('progressText');
 const downloadLink = document.getElementById('downloadLink');
-const outputPre = document.getElementById('output');
 
-// Progress bar
-const progressContainer = document.createElement('div');
-progressContainer.style.width = "100%";
-progressContainer.style.background = "#ddd";
-progressContainer.style.marginTop = "10px";
-const progressBar = document.createElement('div');
-progressBar.style.width = "0%";
-progressBar.style.height = "20px";
-progressBar.style.background = "#4caf50";
-progressContainer.appendChild(progressBar);
-fileInput.parentNode.insertBefore(progressContainer, convertBtn);
+let workbook;
 
-// --- Country name mapping (Python fix included)
-const country_name_map = {
-    "russia": "Russian Federation",
-    "united states": "United States",
-    "united kingdom": "United Kingdom",
-    "iran": "Iran, Islamic Republic of",
-    "korea, north": "Korea, Democratic People's Republic of",
-    "korea, south": "Korea, Republic of",
-    "palestine": "Palestine, State of",
-    "vietnam": "Viet Nam",
-    "syria": "Syrian Arab Republic",
-    "tanzania": "Tanzania, United Republic of",
-    "venezuela": "Venezuela, Bolivarian Republic of",
-    "turkey": "Türkiye",
-    "democratic republic of the congo": "Congo, The Democratic Republic of the",
-    "congo republic": "Congo",
-    "macau": "Macao, S.A.R., China"
-};
-
-// --- Column mappings like Python
-const MAPPINGS = {
-    "PersonentityID": "profileId",
-    "Record Type": "type",
-    "Action Type": "action",
-    "Gender": "gender",
-    "Deceased": "deceased",
-    "Primary Name": "name",
-    "TAE Profile Notes": "profileNotes",
-    "Date of Birth": "dateOfBirth",
-    "List Reference Details": "list_reference_details",
-    "Address Line": "line1",
-    "Address City": "city",
-    "Address County": "province",
-    "Address State": "state",
-    "Address Country": "countryCode",
-    "Address Zip": "poBox"
-};
-
-// --- Convert country name to ISO alpha-2 code
-function countryToISO(country){
-    if(!country) return null;
-    const cstr = country.toString().trim();
-    const lookup = country_name_map[cstr.toLowerCase()] || cstr;
-    // For simplicity, return the mapped value directly
-    return lookup;
-}
-
-// --- Rename columns like Python
-function renameColumns(row){
-    const newRow = {};
-    for(let key in row){
-        const newKey = MAPPINGS[key] || key;
-        newRow[newKey] = row[key];
+// Enable convert button when file is selected
+fileInput.addEventListener('change', () => {
+    if(fileInput.files.length > 0){
+        convertBtn.disabled = false;
+        progressBar.style.width = '0%';
+        progressText.textContent = '';
+        downloadLink.style.display = 'none';
     }
-    return newRow;
-}
+});
 
-// --- Build addresses
-function buildAddress(row){
-    const iso = countryToISO(row.countryCode);
-    if(!iso) return [];
-    const addr = { countryCode: iso };
-    if(row.line1) addr.line = row.line1.toString().trim();
-    if(row.city) addr.city = row.city.toString().trim();
-    if(row.state) addr.province = row.state.toString().trim();
-    return [addr];
-}
-
-// --- Build lists
-function buildLists(row){
-    const parent_id = "TRAE-Import-File";
-    const parent_name = "TRAE Import File";
-    const final_lists = [{
-        active: true,
-        hierarchy: [{id: parent_id, name: parent_name}],
-        id: parent_id,
-        listActive: true,
-        name: parent_name
-    }];
-    const ref_raw = row.list_reference_details || "";
-    if(!ref_raw || ref_raw.toString().toLowerCase() === "nan") return final_lists;
-    const refs = ref_raw.toString().split('|').map(r=>r.trim()).filter(r=>r!=="");
-    refs.forEach(r=>{
-        const dyn_id = r.toUpperCase().replace(/[\[\]\/: ]/g,"-");
-        final_lists.push({
-            active:true,
-            hierarchy:[
-                {id: parent_id, name: parent_name},
-                {id: dyn_id, name: r, parent: parent_id}
-            ],
-            id: dyn_id,
-            listActive:true,
-            name: r
-        });
-    });
-    return final_lists;
-}
-
-// --- Convert date to ISO
-function formatDate(date){
-    if(!date) return [];
-    const d = new Date(date);
-    if(isNaN(d)) return [];
-    return [d.toISOString().split("T")[0]];
-}
-
-// --- Key omission logic like Python
-function cleanRecord(record){
-    const type = record.type;
-    const keys = Object.keys(record);
-    keys.forEach(k=>{
-        const val = record[k];
-        if(val === undefined || val === null || (Array.isArray(val) && val.length===0) || (typeof val==='string' && val.trim()==="")){
-            if(!["citizenshipCode","residentOfCode","countryOfRegistrationCode"].includes(k)){
-                delete record[k];
-            }
-        }
-    });
-    if(type==="company"){
-        delete record.citizenshipCode;
-        delete record.residentOfCode;
-        delete record.dateOfBirthArray;
-    } else if(type==="person"){
-        delete record.countryOfRegistrationCode;
-    }
-    return record;
-}
-
-// --- Convert button
-convertBtn.addEventListener('click',()=>{
+convertBtn.addEventListener('click', async () => {
     const file = fileInput.files[0];
-    if(!file){
-        alert("Please upload a file first!");
+    if(!file) {
+        alert("Please select a file first!");
         return;
     }
 
-    const reader = new FileReader();
-    reader.onload = function(e){
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, {type:'array'});
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        let jsonData = XLSX.utils.sheet_to_json(firstSheet, {defval:""});
+    const data = await file.arrayBuffer();
+    workbook = XLSX.read(data, { type: 'array' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
 
-        // --- Rename columns
-        jsonData = jsonData.map(renameColumns);
+    const chunkSize = 500;
+    let outputLines = [];
 
-        const outputLines = [];
-        let idx = 0;
-        const CHUNK_SIZE = 200; // process 200 rows at a time
+    for(let i=0; i<jsonData.length; i+=chunkSize){
+        const chunk = jsonData.slice(i, i+chunkSize);
+        const converted = convertChunk(chunk);
+        outputLines = outputLines.concat(converted);
 
-        function processChunk(){
-            const end = Math.min(idx + CHUNK_SIZE, jsonData.length);
-            for(let i=idx;i<end;i++){
-                const row = jsonData[i];
-                if(row.profileId) row.profileId = "TRAE"+row.profileId.toString().trim();
-                if(row.type){
-                    const t=row.type.toString().toLowerCase().trim();
-                    row.type = t==="entity"?"company": t==="person"?"person": t;
-                }
-                row.activeStatus="Active";
-                row.dateOfBirthArray = formatDate(row.dateOfBirth);
-                row.addresses = buildAddress(row);
-                row.citizenshipCode = row.countryCode?[row.countryCode]:[];
-                row.residentOfCode = row.countryCode?[row.countryCode]:[];
-                row.countryOfRegistrationCode = row.countryCode?[row.countryCode]:[];
-                row.lists = buildLists(row);
-                outputLines.push(JSON.stringify(cleanRecord(row)));
-            }
-            idx = end;
-            progressBar.style.width = `${Math.floor((idx/jsonData.length)*100)}%`;
+        const progress = Math.min(100, Math.floor(((i+chunk.length)/jsonData.length)*100));
+        progressBar.style.width = `${progress}%`;
+        progressText.textContent = `Processing: ${progress}%`;
+        await new Promise(r => setTimeout(r, 10)); // allow UI update
+    }
 
-            if(idx < jsonData.length){
-                setTimeout(processChunk,0);
-            } else {
-                const blob = new Blob([outputLines.join('\n')], {type:'text/plain'});
-                const url = URL.createObjectURL(blob);
-                downloadLink.href = url;
-                downloadLink.download = "output.jsonl";
-                downloadLink.style.display = "inline-block";
-                downloadLink.textContent = "Download JSONL";
-                outputPre.textContent = `Conversion completed! ${jsonData.length} records processed.`;
-                alert("Conversion completed!");
+    const blob = new Blob([outputLines.join('\n')], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    downloadLink.href = url;
+    downloadLink.download = 'output.jsonl';
+    downloadLink.style.display = 'inline-block';
+    progressText.textContent = `Done! ${jsonData.length} rows processed.`;
+});
+
+// ------------------- Conversion Logic -------------------
+function convertChunk(rows) {
+    const countryNameMap = {
+        "russia": "Russian Federation", "united states": "United States",
+        "united kingdom": "United Kingdom", "iran": "Iran, Islamic Republic of",
+        "korea, north": "Korea, Democratic People's Republic of",
+        "korea, south": "Korea, Republic of", "palestine": "Palestine, State of",
+        "vietnam": "Viet Nam", "syria": "Syrian Arab Republic",
+        "tanzania": "Tanzania, United Republic of", "venezuela": "Venezuela, Bolivarian Republic of",
+        "turkey": "Türkiye", "democratic republic of the congo": "Congo, The Democratic Republic of the",
+        "congo republic": "Congo", "macau": "Macao, S.A.R., China"
+    };
+
+    function countryToISO(name) {
+        if(!name) return null;
+        const lower = name.toLowerCase();
+        if(countryNameMap[lower]) return countryNameMap[lower];
+        return name; // fallback (could integrate ISO library if needed)
+    }
+
+    function buildAddress(row){
+        const country = countryToISO(row["Address Country"]);
+        if(!country) return [];
+        const addr = { countryCode: country };
+        if(row["Address Line"]) addr.line = row["Address Line"];
+        if(row["Address City"]) addr.city = row["Address City"];
+        if(row["Address State"]) addr.province = row["Address State"];
+        return [addr];
+    }
+
+    function buildLists(row){
+        const parentId = "TRAE-Import-File";
+        const parentName = "TRAE Import File";
+        let lists = [{
+            active: true,
+            hierarchy: [{id: parentId, name: parentName}],
+            id: parentId,
+            listActive: true,
+            name: parentName
+        }];
+
+        if(!row["List Reference Details"]) return lists;
+
+        const refs = String(row["List Reference Details"]).split('|').map(r=>r.trim()).filter(r=>r);
+        refs.forEach(r=>{
+            const childId = r.toUpperCase().replace(/[\s\[\]/:]/g,'-');
+            lists.push({
+                active:true,
+                hierarchy:[{id:parentId,name:parentName},{id:childId,name:r,parent:parentId}],
+                id: childId,
+                listActive:true,
+                name: r
+            });
+        });
+        return lists;
+    }
+
+    const output = [];
+
+    for(const row of rows){
+        let rec = {};
+        rec.profileId = row["PersonentityID"] ? `TRAE${String(row["PersonentityID"]).trim()}` : null;
+        rec.type = row["Record Type"] ? String(row["Record Type"]).toLowerCase().trim()==="entity"?"company":"person": null;
+        rec.action = row["Action Type"] || null;
+        rec.gender = row["Gender"] || null;
+        rec.deceased = row["Deceased"] || null;
+        rec.name = row["Primary Name"] || null;
+        rec.profileNotes = row["TAE Profile Notes"] || null;
+        rec.dateOfBirthArray = row["Date of Birth"] ? [formatDate(row["Date of Birth"])] : [];
+        rec.addresses = buildAddress(row);
+        rec.citizenshipCode = row["Address Country"] ? [countryToISO(row["Address Country"])] : [];
+        rec.residentOfCode = row["Address Country"] ? [countryToISO(row["Address Country"])] : [];
+        rec.countryOfRegistrationCode = row["Address Country"] ? [countryToISO(row["Address Country"])] : [];
+        rec.lists = buildLists(row);
+        rec.activeStatus = "Active";
+
+        // Key omission
+        if(rec.type==="company"){
+            delete rec.citizenshipCode;
+            delete rec.residentOfCode;
+            delete rec.dateOfBirthArray;
+        } else if(rec.type==="person"){
+            delete rec.countryOfRegistrationCode;
+        }
+
+        // Remove empty keys
+        for(const k of Object.keys(rec)){
+            if(rec[k]===null || (Array.isArray(rec[k]) && rec[k].length===0) || rec[k]===''){
+                delete rec[k];
             }
         }
 
-        processChunk();
-    };
+        output.push(JSON.stringify(rec));
+    }
 
-    reader.readAsArrayBuffer(file);
-});
+    return output;
+}
+
+function formatDate(date){
+    try{
+        const d = new Date(date);
+        if(isNaN(d)) return null;
+        return d.toISOString().split('T')[0];
+    }catch(e){ return null; }
+}
