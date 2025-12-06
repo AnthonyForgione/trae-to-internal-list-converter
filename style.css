@@ -8,7 +8,7 @@ body {
 .container {
     max-width: 900px;
     margin: 40px auto;
-    background: #ffffff;
+    background: #fff;
     padding: 30px 40px;
     border-radius: 12px;
     box-shadow: 0 6px 20px rgba(0,0,0,0.1);
@@ -22,103 +22,39 @@ body {
     flex-wrap: wrap;
 }
 
-.header-flex h1 {
-    font-size: 24px;
-    font-weight: 600;
-    margin: 0;
-}
+.header-flex h1 { font-size: 24px; font-weight: 600; margin: 0; }
+.app-logo { height: 50px; }
 
-.app-logo {
-    height: 50px;
-}
+.sub-description { font-size: 16px; margin-bottom: 25px; color: #555; }
 
-.sub-description {
-    font-size: 16px;
-    margin-bottom: 25px;
-    color: #555;
-}
-
-.step-box {
-    background: #f9fafe;
-    padding: 20px 25px;
-    border-radius: 10px;
-    margin-bottom: 25px;
-}
-
-.step-box h2, .step-box h3 {
-    font-weight: 600;
-    margin-bottom: 15px;
-}
-
-.information li {
-    margin-bottom: 10px;
-}
+.step-box { background: #f9fafe; padding: 20px 25px; border-radius: 10px; margin-bottom: 25px; }
+.step-box h2, .step-box h3 { font-weight: 600; margin-bottom: 15px; }
+.information li { margin-bottom: 10px; }
 
 .file-upload-label {
-    display: inline-block;
-    padding: 10px 20px;
-    background-color: #007BFF;
-    color: white;
-    border-radius: 6px;
-    cursor: pointer;
-    margin-right: 10px;
-    font-weight: 500;
+    display: inline-block; padding: 10px 20px; background-color: #007BFF; color: white;
+    border-radius: 6px; cursor: pointer; margin-right: 10px; font-weight: 500;
 }
-
-.file-upload-label:hover {
-    background-color: #0056b3;
-}
-
-#fileInput {
-    display: none;
-}
+.file-upload-label:hover { background-color: #0056b3; }
+#fileInput { display: none; }
 
 .convert-btn {
-    padding: 10px 25px;
-    background-color: #28a745;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 500;
+    padding: 10px 25px; background-color: #28a745; color: white; border: none; border-radius: 6px;
+    cursor: pointer; font-weight: 500;
 }
+.convert-btn:hover { background-color: #218838; }
 
-.convert-btn:hover {
-    background-color: #218838;
-}
-
-.status-message {
-    margin-top: 15px;
-    font-weight: 500;
-}
+.status-message { margin-top: 15px; font-weight: 500; }
 
 .progress-container {
-    width: 100%;
-    background-color: #e0e0e0;
-    border-radius: 6px;
-    margin-top: 15px;
-    height: 20px;
-    overflow: hidden;
+    width: 100%; background-color: #e0e0e0; border-radius: 6px; margin-top: 15px; height: 20px; overflow: hidden;
 }
-
 .progress-bar {
-    width: 0%;
-    height: 100%;
-    background-color: #28a745;
-    text-align: center;
-    color: white;
-    line-height: 20px;
-    font-weight: 500;
-    transition: width 0.2s;
+    width: 0%; height: 100%; background-color: #28a745; text-align: center; color: white;
+    line-height: 20px; font-weight: 500; transition: width 0.2s;
 }
 
 @media (max-width: 600px) {
-    .header-flex {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .app-logo {
-        margin-top: 10px;
-    }
+    .header-flex { flex-direction: column; align-items: flex-start; }
+    .app-logo { margin-top: 10px; }
 }
