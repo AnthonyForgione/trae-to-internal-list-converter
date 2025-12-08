@@ -76,11 +76,21 @@ function convertChunk(rows) {
         if (!name) return null;
         const lower = name.toLowerCase();
         const mapped = countryNameMap[lower] || name;
+
+        // Get ISO alpha-2 code
+        const alpha2 = countries.getAlpha2Code(mapped, "en");
+        if (alpha2) return alpha2;
+
+        // Fuzzy search fallback
         try {
-            return countries.getAlpha2Code(mapped, "en") || mapped;
-        } catch(e) {
-            return mapped;
+            const fuzzy = countries.searchFuzzy(mapped);
+            if (fuzzy && fuzzy.length > 0) return fuzzy[0].alpha2;
+        } catch (e) {
+            // do nothing
         }
+
+        // Return null if no ISO code found
+        return null;
     }
 
     function buildAddress(row) {
@@ -153,16 +163,4 @@ function convertChunk(rows) {
             }
         }
 
-        output.push(JSON.stringify(rec));
-    }
-
-    return output;
-}
-
-function formatDate(date) {
-    try {
-        const d = new Date(date);
-        if (isNaN(d)) return null;
-        return d.toISOString().split('T')[0];
-    } catch (e) { return null; }
-}
+        output.
