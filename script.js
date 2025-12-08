@@ -1,3 +1,4 @@
+// ------------------------- VARIABLES -------------------------
 const fileInput = document.getElementById('fileInput');
 const convertBtn = document.getElementById('convertBtn');
 const progressBar = document.getElementById('progressBar');
@@ -6,7 +7,7 @@ const downloadLink = document.getElementById('downloadLink');
 
 let workbook;
 
-// Enable convert button when file is selected
+// -------------------- ENABLE BUTTON --------------------
 fileInput.addEventListener('change', () => {
     if (fileInput.files.length > 0) {
         convertBtn.disabled = false;
@@ -16,6 +17,7 @@ fileInput.addEventListener('change', () => {
     }
 });
 
+// -------------------- CONVERT BUTTON --------------------
 convertBtn.addEventListener('click', async () => {
     const file = fileInput.files[0];
     if (!file) {
@@ -40,7 +42,7 @@ convertBtn.addEventListener('click', async () => {
         const progress = Math.min(100, Math.floor(((i + chunk.length) / jsonData.length) * 100));
         progressBar.style.width = `${progress}%`;
         progressText.textContent = `Processing: ${progress}%`;
-        await new Promise(r => setTimeout(r, 10));
+        await new Promise(r => setTimeout(r, 10)); // allow UI update
     }
 
     const blob = new Blob([outputLines.join('\n')], { type: 'application/json' });
@@ -52,57 +54,59 @@ convertBtn.addEventListener('click', async () => {
     progressText.textContent = `Done! ${jsonData.length} rows processed.`;
 });
 
-// ------------------- Conversion Logic -------------------
+// -------------------- CONVERSION LOGIC --------------------
 function convertChunk(rows) {
-    const countryNameMap = {
-        "russia": "Russian Federation",
-        "united states": "United States",
-        "united kingdom": "United Kingdom",
-        "iran": "Iran, Islamic Republic of",
-        "korea, north": "Korea, Democratic People's Republic of",
-        "korea, south": "Korea, Republic of",
-        "palestine": "Palestine, State of",
-        "vietnam": "Viet Nam",
-        "syria": "Syrian Arab Republic",
-        "tanzania": "Tanzania, United Republic of",
-        "venezuela": "Venezuela, Bolivarian Republic of",
-        "turkey": "Türkiye",
-        "democratic republic of the congo": "Congo, The Democratic Republic of the",
-        "congo republic": "Congo",
-        "macau": "Macao, S.A.R., China"
-    };
 
+    // -------------------- COUNTRY ISO --------------------
     function countryToISO(name) {
         if (!name) return null;
         const lower = name.toLowerCase();
-        const mapped = countryNameMap[lower] || name;
 
-        // Get ISO alpha-2 code
-        const alpha2 = countries.getAlpha2Code(mapped, "en");
-        if (alpha2) return alpha2;
+        // Fix known mismatches
+        const fixes = {
+            "north korea": "KP",
+            "south korea": "KR",
+            "iran": "IR",
+            "russia": "RU",
+            "syria": "SY",
+            "tanzania": "TZ",
+            "venezuela": "VE",
+            "turkey": "TR",
+            "macau": "MO",
+            "palestine": "PS",
+            "democratic republic of the congo": "CD",
+            "congo republic": "CG",
+            "vietnam": "VN"
+        };
+        if (fixes[lower]) return fixes[lower];
+
+        // i18n-iso-countries lookup
+        const code = countries.getAlpha2Code(name, "en");
+        if (code) return code;
 
         // Fuzzy search fallback
         try {
-            const fuzzy = countries.searchFuzzy(mapped);
+            const fuzzy = countries.searchFuzzy(name);
             if (fuzzy && fuzzy.length > 0) return fuzzy[0].alpha2;
-        } catch (e) {
-            // do nothing
-        }
+        } catch (e) { }
 
-        // Return null if no ISO code found
-        return null;
+        return null; // fallback
     }
 
+    // -------------------- BUILD ADDRESS --------------------
     function buildAddress(row) {
-        const country = countryToISO(row["Address Country"]);
-        if (!country) return [];
-        const addr = { countryCode: country };
+        const iso = countryToISO(row["Address Country"]);
+        if (!iso) return [];
+
+        const addr = { countryCode: iso };
         if (row["Address Line"]) addr.line = row["Address Line"];
         if (row["Address City"]) addr.city = row["Address City"];
         if (row["Address State"]) addr.province = row["Address State"];
+
         return [addr];
     }
 
+    // -------------------- BUILD LISTS --------------------
     function buildLists(row) {
         const parentId = "TRAE-Import-File";
         const parentName = "TRAE Import File";
@@ -127,9 +131,11 @@ function convertChunk(rows) {
                 name: r
             });
         });
+
         return lists;
     }
 
+    // -------------------- PROCESS ROWS --------------------
     const output = [];
 
     for (const row of rows) {
@@ -143,12 +149,16 @@ function convertChunk(rows) {
         rec.profileNotes = row["TAE Profile Notes"] || null;
         rec.dateOfBirthArray = row["Date of Birth"] ? [formatDate(row["Date of Birth"])] : [];
         rec.addresses = buildAddress(row);
-        rec.citizenshipCode = row["Address Country"] ? [countryToISO(row["Address Country"])] : [];
-        rec.residentOfCode = row["Address Country"] ? [countryToISO(row["Address Country"])] : [];
-        rec.countryOfRegistrationCode = row["Address Country"] ? [countryToISO(row["Address Country"])] : [];
+
+        const iso = countryToISO(row["Address Country"]);
+        rec.citizenshipCode = iso ? [iso] : [];
+        rec.residentOfCode = iso ? [iso] : [];
+        rec.countryOfRegistrationCode = iso ? [iso] : [];
+
         rec.lists = buildLists(row);
         rec.activeStatus = "Active";
 
+        // Key omission
         if (rec.type === "company") {
             delete rec.citizenshipCode;
             delete rec.residentOfCode;
@@ -157,10 +167,24 @@ function convertChunk(rows) {
             delete rec.countryOfRegistrationCode;
         }
 
+        // Remove empty keys
         for (const k of Object.keys(rec)) {
             if (rec[k] === null || (Array.isArray(rec[k]) && rec[k].length === 0) || rec[k] === '') {
                 delete rec[k];
             }
         }
 
-        output.
+        output.push(JSON.stringify(rec));
+    }
+
+    return output;
+}
+
+// -------------------- FORMAT DATE --------------------
+function formatDate(date) {
+    try {
+        const d = new Date(date);
+        if (isNaN(d)) return null;
+        return d.toISOString().split('T')[0];
+    } catch (e) { return null; }
+}
