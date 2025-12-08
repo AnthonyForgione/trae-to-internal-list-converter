@@ -1,4 +1,3 @@
-// ------------------- Setup -------------------
 const fileInput = document.getElementById('fileInput');
 const convertBtn = document.getElementById('convertBtn');
 const progressBar = document.getElementById('progressBar');
@@ -9,7 +8,7 @@ let workbook;
 
 // Enable convert button when file is selected
 fileInput.addEventListener('change', () => {
-    if(fileInput.files.length > 0){
+    if (fileInput.files.length > 0) {
         convertBtn.disabled = false;
         progressBar.style.width = '0%';
         progressText.textContent = '';
@@ -17,10 +16,9 @@ fileInput.addEventListener('change', () => {
     }
 });
 
-// ------------------- Conversion -------------------
 convertBtn.addEventListener('click', async () => {
     const file = fileInput.files[0];
-    if(!file) {
+    if (!file) {
         alert("Please select a file first!");
         return;
     }
@@ -34,12 +32,12 @@ convertBtn.addEventListener('click', async () => {
     const chunkSize = 500;
     let outputLines = [];
 
-    for(let i=0; i<jsonData.length; i+=chunkSize){
-        const chunk = jsonData.slice(i, i+chunkSize);
+    for (let i = 0; i < jsonData.length; i += chunkSize) {
+        const chunk = jsonData.slice(i, i + chunkSize);
         const converted = convertChunk(chunk);
         outputLines = outputLines.concat(converted);
 
-        const progress = Math.min(100, Math.floor(((i+chunk.length)/jsonData.length)*100));
+        const progress = Math.min(100, Math.floor(((i + chunk.length) / jsonData.length) * 100));
         progressBar.style.width = `${progress}%`;
         progressText.textContent = `Processing: ${progress}%`;
         await new Promise(r => setTimeout(r, 10)); // allow UI update
@@ -56,79 +54,78 @@ convertBtn.addEventListener('click', async () => {
 
 // ------------------- Conversion Logic -------------------
 function convertChunk(rows) {
-
-    // ------------------- Country Mapping & ISO -------------------
     const countryNameMap = {
-        "russia": "Russian Federation", "united states": "United States",
-        "united kingdom": "United Kingdom", "iran": "Iran, Islamic Republic of",
+        "russia": "Russian Federation",
+        "united states": "United States",
+        "united kingdom": "United Kingdom",
+        "iran": "Iran, Islamic Republic of",
         "korea, north": "Korea, Democratic People's Republic of",
-        "korea, south": "Korea, Republic of", "palestine": "Palestine, State of",
-        "vietnam": "Viet Nam", "syria": "Syrian Arab Republic",
-        "tanzania": "Tanzania, United Republic of", "venezuela": "Venezuela, Bolivarian Republic of",
-        "turkey": "Türkiye", "democratic republic of the congo": "Congo, The Democratic Republic of the",
-        "congo republic": "Congo", "macau": "Macao, S.A.R., China"
+        "korea, south": "Korea, Republic of",
+        "palestine": "Palestine, State of",
+        "vietnam": "Viet Nam",
+        "syria": "Syrian Arab Republic",
+        "tanzania": "Tanzania, United Republic of",
+        "venezuela": "Venezuela, Bolivarian Republic of",
+        "turkey": "Türkiye",
+        "democratic republic of the congo": "Congo, The Democratic Republic of the",
+        "congo republic": "Congo",
+        "macau": "Macao, S.A.R., China"
     };
 
-    // Make sure English locale is loaded
-    countries.registerLocale(countries.langs.en);
-
     function countryToISO(name) {
-        if(!name) return null;
-        const lower = name.toLowerCase().trim();
+        if (!name) return null;
+        const lower = name.toLowerCase();
         const mapped = countryNameMap[lower] || name;
-
-        let code = countries.getAlpha2Code(mapped, "en");
-        if(code) return code;
-
-        return null; // fallback if not found
+        try {
+            return countries.getAlpha2Code(mapped, "en") || mapped; // using global i18n-iso-countries
+        } catch (e) {
+            return mapped;
+        }
     }
 
-    // ------------------- Build Address -------------------
-    function buildAddress(row){
+    function buildAddress(row) {
         const country = countryToISO(row["Address Country"]);
-        if(!country) return [];
+        if (!country) return [];
         const addr = { countryCode: country };
-        if(row["Address Line"]) addr.line = row["Address Line"];
-        if(row["Address City"]) addr.city = row["Address City"];
-        if(row["Address State"]) addr.province = row["Address State"];
+        if (row["Address Line"]) addr.line = row["Address Line"];
+        if (row["Address City"]) addr.city = row["Address City"];
+        if (row["Address State"]) addr.province = row["Address State"];
         return [addr];
     }
 
-    // ------------------- Build Lists -------------------
-    function buildLists(row){
+    function buildLists(row) {
         const parentId = "TRAE-Import-File";
         const parentName = "TRAE Import File";
         let lists = [{
             active: true,
-            hierarchy: [{id: parentId, name: parentName}],
+            hierarchy: [{ id: parentId, name: parentName }],
             id: parentId,
             listActive: true,
             name: parentName
         }];
 
-        if(!row["List Reference Details"]) return lists;
+        if (!row["List Reference Details"]) return lists;
 
-        const refs = String(row["List Reference Details"]).split('|').map(r=>r.trim()).filter(r=>r);
-        refs.forEach(r=>{
-            const childId = r.toUpperCase().replace(/[\s\[\]/:]/g,'-');
+        const refs = String(row["List Reference Details"]).split('|').map(r => r.trim()).filter(r => r);
+        refs.forEach(r => {
+            const childId = r.toUpperCase().replace(/[\s\[\]/:]/g, '-');
             lists.push({
-                active:true,
-                hierarchy:[{id:parentId,name:parentName},{id:childId,name:r,parent:parentId}],
+                active: true,
+                hierarchy: [{ id: parentId, name: parentName }, { id: childId, name: r, parent: parentId }],
                 id: childId,
-                listActive:true,
+                listActive: true,
                 name: r
             });
         });
         return lists;
     }
 
-    // ------------------- Process Rows -------------------
     const output = [];
 
-    for(const row of rows){
+    for (const row of rows) {
         let rec = {};
         rec.profileId = row["PersonentityID"] ? `TRAE${String(row["PersonentityID"]).trim()}` : null;
-        rec.type = row["Record Type"] ? String(row["Record Type"]).toLowerCase().trim()==="entity"?"company":"person": null;
+        rec.type = row["Record Type"] ? String(row["Record Type"]).toLowerCase().trim() === "entity" ? "company" : "person" : null;
         rec.action = row["Action Type"] || null;
         rec.gender = row["Gender"] || null;
         rec.deceased = row["Deceased"] || null;
@@ -142,18 +139,18 @@ function convertChunk(rows) {
         rec.lists = buildLists(row);
         rec.activeStatus = "Active";
 
-        // Key omission for person/company
-        if(rec.type==="company"){
+        // Key omission
+        if (rec.type === "company") {
             delete rec.citizenshipCode;
             delete rec.residentOfCode;
             delete rec.dateOfBirthArray;
-        } else if(rec.type==="person"){
+        } else if (rec.type === "person") {
             delete rec.countryOfRegistrationCode;
         }
 
         // Remove empty keys
-        for(const k of Object.keys(rec)){
-            if(rec[k]===null || (Array.isArray(rec[k]) && rec[k].length===0) || rec[k]===''){
+        for (const k of Object.keys(rec)) {
+            if (rec[k] === null || (Array.isArray(rec[k]) && rec[k].length === 0) || rec[k] === '') {
                 delete rec[k];
             }
         }
@@ -164,11 +161,10 @@ function convertChunk(rows) {
     return output;
 }
 
-// ------------------- Format Date -------------------
-function formatDate(date){
-    try{
+function formatDate(date) {
+    try {
         const d = new Date(date);
-        if(isNaN(d)) return null;
+        if (isNaN(d)) return null;
         return d.toISOString().split('T')[0];
-    }catch(e){ return null; }
+    } catch (e) { return null; }
 }
