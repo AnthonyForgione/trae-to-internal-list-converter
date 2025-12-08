@@ -3,54 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <title>TRAE XLS FEED CONVERTER</title>
-  
-  <!-- Google Font -->
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  
-  <!-- Link your CSS -->
   <link rel="stylesheet" href="style.css">
 
-  <!-- SheetJS library -->
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-
-  <!-- i18n-iso-countries library -->
-  <script src="https://cdn.jsdelivr.net/npm/i18n-iso-countries@6.14.0/dist/countries.min.js"></script>
-  <script>
-    // Register English locale
-    countries.registerLocale(countries.getNames("en", { select: "official" }));
-  </script>
+  <script src="https://cdn.jsdelivr.net/npm/i18n-iso-countries@7.5.0/dist/index.min.js"></script>
 </head>
 <body>
 
   <div class="container">
-
     <div class="header-flex">
-      <h1>TRAE XLS FEED CONVERSION TO ASAM INTERNAL LIST</h1>
-      <img src="logo.png" alt="Company Logo" class="app-logo">
+      <h1>TRAE XLS FEED CONVERSION</h1>
+      <img src="logo.png" alt="Logo" class="app-logo">
     </div>
-    <p class="sub-description">
-      Converts the TRAE XLS Feed into JSONL for ASAM Internal List import.
-    </p>
+    
+    <p class="sub-description">Converts TRAE XLS into ISO-standard JSONL files.</p>
 
     <section class="step-box">
-      <h2>Step 1: Upload the TRAE feed in XLS/XLSX format</h2>
+      <h2>Step 1: Upload the TRAE feed</h2>
 
-      <label for="fileInput" class="file-upload-label">Choose File</label>
-      <input type="file" id="fileInput" accept=".xls,.xlsx">
-
-      <button id="convertBtn" type="button" class="convert-btn" disabled>Convert to JSONL</button>
+      <div class="input-group">
+        <label for="fileInput" class="file-upload-label">Choose File</label>
+        <input type="file" id="fileInput" accept=".xls,.xlsx">
+        <button id="convertBtn" type="button" class="convert-btn" disabled>Convert to JSONL</button>
+      </div>
 
       <div class="progress-container">
         <div id="progressBar" class="progress-bar"></div>
       </div>
-      <p id="progressText"></p>
+      <p id="progressText">No file selected.</p>
 
       <a id="downloadLink" class="download-jsonl" style="display:none;">Download JSONL</a>
     </section>
-
   </div>
 
-  <!-- Conversion logic -->
   <script src="script.js"></script>
 </body>
 </html>
