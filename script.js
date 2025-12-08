@@ -1,79 +1,105 @@
 (function () {
-  // ISO Utility using the library loaded in index.html
-  function _to_iso_country(value) {
-    if (isEmpty(value)) return null;
-    const input = String(value).trim();
-    
-    // 1. Check if it's already a 2-letter code
-    if (input.length === 2) return input.toUpperCase();
+    console.log("TRAE XLS Converter: Script initialized.");
 
-    // 2. Try to convert from name (e.g., "United Kingdom" -> "GB")
-    const code = countries.getAlpha2Code(input, 'en');
-    return code || input.substring(0, 2).toUpperCase(); // Fallback to first 2 chars
-  }
+    // ISO Country Helper using the i18n library
+    function _to_iso_country(value) {
+        if (!value) return null;
+        const input = String(value).trim();
+        if (input.length === 2) return input.toUpperCase();
+        
+        try {
+            // Attempt conversion using the global 'countries' object from the index.html library
+            const code = countries.getAlpha2Code(input, 'en');
+            return code || input.substring(0, 2).toUpperCase();
+        } catch (e) {
+            console.warn("ISO Country conversion error:", e);
+            return input.substring(0, 2).toUpperCase();
+        }
+    }
 
-  function isEmpty(value) {
-    return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
-  }
+    function init() {
+        const fileInput = document.getElementById('fileInput');
+        const convertBtn = document.getElementById('convertBtn');
+        const progressText = document.getElementById('progressText');
+        const downloadLink = document.getElementById('downloadLink');
 
-  function init() {
-    const fileInput = document.getElementById('fileInput');
-    const convertBtn = document.getElementById('convertBtn');
-    const progressBar = document.getElementById('progressBar');
-    const progressText = document.getElementById('progressText');
-    const downloadLink = document.getElementById('downloadLink');
+        if (!fileInput || !convertBtn) {
+            console.error("Critical Error: Required HTML elements not found!");
+            return;
+        }
 
-    // --- FIX: Enable button when file is selected ---
-    fileInput.addEventListener('change', () => {
-      if (fileInput.files.length > 0) {
-        convertBtn.disabled = false;
-        convertBtn.classList.add('active'); // Optional: for CSS styling
-      } else {
-        convertBtn.disabled = true;
-      }
-    });
-
-    convertBtn.addEventListener('click', () => {
-      const file = fileInput.files[0];
-      const reader = new FileReader();
-
-      reader.onload = function (e) {
-        const data = e.target.result;
-        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
-
-        // Transform with ISO logic
-        const transformed = rows.map(row => {
-          // Normalize keys (remove quotes/spaces)
-          const cleanRow = {};
-          Object.keys(row).forEach(k => cleanRow[k.replace(/^"+|"+$/g, '').trim()] = row[k]);
-
-          return {
-            objectType: 'client',
-            clientId: cleanRow['clientId'],
-            companyName: cleanRow['name'],
-            // ISO COUNTRY CONVERSION
-            incorporationCountryCode: _to_iso_country(cleanRow['incorporationCountryCode']),
-            addresses: cleanRow['country'] ? [{
-              countryCode: _to_iso_country(cleanRow['countryCode'] || cleanRow['country']),
-              city: cleanRow['city']
-            }] : []
-          };
+        // 1. Enable button logic
+        fileInput.addEventListener('change', (e) => {
+            console.log("File selected:", e.target.files[0].name);
+            if (e.target.files.length > 0) {
+                convertBtn.disabled = false;
+                progressText.textContent = "File ready: " + e.target.files[0].name;
+                progressText.style.color = "#28a745";
+            } else {
+                convertBtn.disabled = true;
+                progressText.textContent = "No file selected.";
+            }
         });
 
-        // Create Blob for download
-        const jsonlContent = transformed.map(line => JSON.stringify(line)).join('\n');
-        const blob = new Blob([jsonlContent], { type: 'application/json' });
-        downloadLink.href = URL.createObjectURL(blob);
-        downloadLink.download = `converted_${Date.now()}.jsonl`;
-        downloadLink.style.display = 'block';
-        downloadLink.textContent = 'Click here to download ISO JSONL';
-      };
+        // 2. Conversion logic
+        convertBtn.addEventListener('click', () => {
+            const file = fileInput.files[0];
+            const reader = new FileReader();
 
-      reader.readAsArrayBuffer(file);
-    });
-  }
+            progressText.textContent = "Processing... please wait.";
+            
+            reader.onload = function (e) {
+                try {
+                    const data = e.target.result;
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
 
-  document.addEventListener('DOMContentLoaded', init);
+                    console.log("SheetJS read success. Rows count:", rows.length);
+
+                    const transformed = rows.map(row => {
+                        // Cleanup Excel keys
+                        const clean = {};
+                        Object.keys(row).forEach(k => clean[k.replace(/^"+|"+$/g, '').trim()] = row[k]);
+
+                        return {
+                            objectType: 'client',
+                            clientId: clean['clientId'],
+                            companyName: clean['name'],
+                            entityType: clean['entityType'] || 'ORGANISATION',
+                            incorporationCountryCode: _to_iso_country(clean['incorporationCountryCode'] || clean['countryCode']),
+                            // Map addresses according to your internal list requirement
+                            addresses: clean['country'] ? [{
+                                countryCode: _to_iso_country(clean['country']),
+                                city: clean['city'],
+                                line1: clean['Address line1']
+                            }] : []
+                        };
+                    });
+
+                    const jsonl = transformed.map(line => JSON.stringify(line)).join('\n');
+                    const blob = new Blob([jsonl], { type: 'application/json' });
+                    
+                    downloadLink.href = URL.createObjectURL(blob);
+                    downloadLink.download = `ISO_Feed_${Date.now()}.jsonl`;
+                    downloadLink.style.display = 'inline-block';
+                    downloadLink.textContent = "Download Processed JSONL";
+                    
+                    progressText.textContent = "Conversion Complete!";
+                } catch (err) {
+                    console.error("Conversion failed:", err);
+                    progressText.textContent = "Error during conversion. Check console.";
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    // Run when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 })();
