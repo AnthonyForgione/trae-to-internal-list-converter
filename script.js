@@ -1,110 +1,79 @@
 (function () {
-  // --- NEW ISO UTILITIES ---
-
-  // Simple ISO 8601 Date Formatter (YYYY-MM-DD)
-  function _to_iso_date(value) {
-    if (isEmpty(value)) return null;
-    let d = value instanceof Date ? value : new Date(value);
-    if (isNaN(d.getTime())) return null;
-    return d.toISOString().split('T')[0];
-  }
-
-  // Ensures Country Codes are strictly ISO 3166-1 alpha-2 (2 chars)
+  // ISO Utility using the library loaded in index.html
   function _to_iso_country(value) {
     if (isEmpty(value)) return null;
-    let code = String(value).trim().toUpperCase();
-    // If the user typed "United Kingdom", this simple logic won't fix it.
-    // However, we ensure it is truncated or flagged if not 2 chars.
-    return code.length === 2 ? code : code.substring(0, 2); 
-  }
+    const input = String(value).trim();
+    
+    // 1. Check if it's already a 2-letter code
+    if (input.length === 2) return input.toUpperCase();
 
-  // --- EXISTING HELPERS (REFINED) ---
+    // 2. Try to convert from name (e.g., "United Kingdom" -> "GB")
+    const code = countries.getAlpha2Code(input, 'en');
+    return code || input.substring(0, 2).toUpperCase(); // Fallback to first 2 chars
+  }
 
   function isEmpty(value) {
-    if (value === null || value === undefined) return true;
-    if (typeof value === 'number' && isNaN(value)) return true;
-    if (typeof value === 'string') return value.trim() === '';
-    return false;
+    return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
   }
 
-  function _to_string_id(value) {
-    if (typeof value === 'number' && Number.isInteger(value)) return String(value);
-    return String(value);
-  }
+  function init() {
+    const fileInput = document.getElementById('fileInput');
+    const convertBtn = document.getElementById('convertBtn');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const downloadLink = document.getElementById('downloadLink');
 
-  function _to_unix_timestamp_ms(value) {
-    if (isEmpty(value)) return null;
-    let d = value instanceof Date ? value : new Date(value);
-    return !isNaN(d.getTime()) ? d.getTime() : null;
-  }
-
-  function normalizeKey(k) {
-    return String(k || '').replace(/^"+|"+$/g, '').trim();
-  }
-
-  function normalizeRowKeys(row) {
-    const out = {};
-    for (const [k, v] of Object.entries(row)) {
-      out[normalizeKey(k)] = v;
-    }
-    return out;
-  }
-
-  // --- MAIN TRANSFORMER ---
-
-  function transformRowToClientJson(rowRaw) {
-    const row = normalizeRowKeys(rowRaw);
-    const clientData = { objectType: 'client' };
-
-    function addField(key, value) {
-      if (!isEmpty(value)) clientData[key] = value;
-    }
-
-    // Identifiers
-    addField('clientId', row['clientId']);
-    addField('entityType', row['entityType']);
-    addField('status', row['status']);
-
-    const type = String(row['entityType'] || '').toUpperCase();
-
-    // 1. Names
-    if (type === 'ORGANISATION' || type === 'ORGANIZATION') {
-      addField('companyName', row['name']);
-      addField('incorporationCountryCode', _to_iso_country(row['incorporationCountryCode']));
-      addField('dateOfIncorporation', _to_iso_date(row['dateOfIncorporation']));
-    } else {
-      addField('name', row['name']);
-      addField('forename', row['forename']);
-      addField('surname', row['surname']);
-      addField('gender', String(row['gender'] || '').toUpperCase());
-      addField('dateOfBirth', _to_iso_date(row['dateOfBirth']));
-      addField('birthPlaceCountryCode', _to_iso_country(row['birthPlaceCountryCode']));
-      
-      // Nationalities (Ensure ISO format if list provided)
-      if (!isEmpty(row['nationalityCodes'])) {
-        const codes = String(row['nationalityCodes']).split(',').map(c => _to_iso_country(c));
-        addField('nationalityCodes', codes.filter(Boolean));
+    // --- FIX: Enable button when file is selected ---
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) {
+        convertBtn.disabled = false;
+        convertBtn.classList.add('active'); // Optional: for CSS styling
+      } else {
+        convertBtn.disabled = true;
       }
-    }
+    });
 
-    // 2. Dates (Standardized to Unix ms per your original requirement)
-    addField('lastReviewed', _to_unix_timestamp_ms(row['lastReviewed']));
-    addField('periodicReviewStartDate', _to_unix_timestamp_ms(row['periodicReviewStartDate']));
+    convertBtn.addEventListener('click', () => {
+      const file = fileInput.files[0];
+      const reader = new FileReader();
 
-    // 3. Address (Enforce ISO Country Code)
-    const addr = {};
-    if (!isEmpty(row['Address line1'])) addr.line1 = String(row['Address line1']);
-    if (!isEmpty(row['city'])) addr.city = String(row['city']);
-    if (!isEmpty(row['postcode'])) addr.postcode = String(row['postcode']);
-    
-    // ISO Country Mapping
-    const cCode = _to_iso_country(row['countryCode'] || row['country']);
-    if (cCode) addr.countryCode = cCode;
+      reader.onload = function (e) {
+        const data = e.target.result;
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
 
-    if (Object.keys(addr).length > 0) addField('addresses', [addr]);
+        // Transform with ISO logic
+        const transformed = rows.map(row => {
+          // Normalize keys (remove quotes/spaces)
+          const cleanRow = {};
+          Object.keys(row).forEach(k => cleanRow[k.replace(/^"+|"+$/g, '').trim()] = row[k]);
 
-    return clientData;
+          return {
+            objectType: 'client',
+            clientId: cleanRow['clientId'],
+            companyName: cleanRow['name'],
+            // ISO COUNTRY CONVERSION
+            incorporationCountryCode: _to_iso_country(cleanRow['incorporationCountryCode']),
+            addresses: cleanRow['country'] ? [{
+              countryCode: _to_iso_country(cleanRow['countryCode'] || cleanRow['country']),
+              city: cleanRow['city']
+            }] : []
+          };
+        });
+
+        // Create Blob for download
+        const jsonlContent = transformed.map(line => JSON.stringify(line)).join('\n');
+        const blob = new Blob([jsonlContent], { type: 'application/json' });
+        downloadLink.href = URL.createObjectURL(blob);
+        downloadLink.download = `converted_${Date.now()}.jsonl`;
+        downloadLink.style.display = 'block';
+        downloadLink.textContent = 'Click here to download ISO JSONL';
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
   }
 
-  // ... (Keep existing init() and UI logic from your original script) ...
+  document.addEventListener('DOMContentLoaded', init);
 })();
