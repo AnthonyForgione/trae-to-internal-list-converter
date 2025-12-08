@@ -1,18 +1,26 @@
 (function () {
-    console.log("TRAE XLS Converter: Script initialized.");
+    // 1. REGISTER ISO DATA (Prevents the ReferenceError)
+    // The library loads into the global variable 'countries'
+    if (typeof countries !== 'undefined') {
+        // We register English data manually since we are using a CDN
+        countries.registerLocale(require("i18n-iso-countries/langs/en.json")); 
+    }
 
-    // ISO Country Helper using the i18n library
+    /**
+     * ISO Helper: Converts names to Alpha-2
+     */
     function _to_iso_country(value) {
         if (!value) return null;
         const input = String(value).trim();
-        if (input.length === 2) return input.toUpperCase();
         
+        // Return immediately if already ISO code
+        if (input.length === 2) return input.toUpperCase();
+
         try {
-            // Attempt conversion using the global 'countries' object from the index.html library
+            // Attempt conversion using library
             const code = countries.getAlpha2Code(input, 'en');
             return code || input.substring(0, 2).toUpperCase();
         } catch (e) {
-            console.warn("ISO Country conversion error:", e);
             return input.substring(0, 2).toUpperCase();
         }
     }
@@ -23,31 +31,23 @@
         const progressText = document.getElementById('progressText');
         const downloadLink = document.getElementById('downloadLink');
 
-        if (!fileInput || !convertBtn) {
-            console.error("Critical Error: Required HTML elements not found!");
-            return;
-        }
-
-        // 1. Enable button logic
+        // ENABLE BUTTON WHEN FILE PICKED
         fileInput.addEventListener('change', (e) => {
-            console.log("File selected:", e.target.files[0].name);
             if (e.target.files.length > 0) {
                 convertBtn.disabled = false;
-                progressText.textContent = "File ready: " + e.target.files[0].name;
-                progressText.style.color = "#28a745";
+                progressText.textContent = "Selected: " + e.target.files[0].name;
             } else {
                 convertBtn.disabled = true;
-                progressText.textContent = "No file selected.";
             }
         });
 
-        // 2. Conversion logic
+        // CONVERSION LOGIC
         convertBtn.addEventListener('click', () => {
             const file = fileInput.files[0];
             const reader = new FileReader();
 
-            progressText.textContent = "Processing... please wait.";
-            
+            progressText.textContent = "Converting...";
+
             reader.onload = function (e) {
                 try {
                     const data = e.target.result;
@@ -55,24 +55,19 @@
                     const sheet = workbook.Sheets[workbook.SheetNames[0]];
                     const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
 
-                    console.log("SheetJS read success. Rows count:", rows.length);
-
                     const transformed = rows.map(row => {
-                        // Cleanup Excel keys
+                        // Normalize header keys
                         const clean = {};
                         Object.keys(row).forEach(k => clean[k.replace(/^"+|"+$/g, '').trim()] = row[k]);
 
                         return {
                             objectType: 'client',
                             clientId: clean['clientId'],
-                            companyName: clean['name'],
-                            entityType: clean['entityType'] || 'ORGANISATION',
-                            incorporationCountryCode: _to_iso_country(clean['incorporationCountryCode'] || clean['countryCode']),
-                            // Map addresses according to your internal list requirement
+                            name: clean['name'],
+                            incorporationCountryCode: _to_iso_country(clean['incorporationCountryCode']),
                             addresses: clean['country'] ? [{
                                 countryCode: _to_iso_country(clean['country']),
-                                city: clean['city'],
-                                line1: clean['Address line1']
+                                city: clean['city']
                             }] : []
                         };
                     });
@@ -81,22 +76,20 @@
                     const blob = new Blob([jsonl], { type: 'application/json' });
                     
                     downloadLink.href = URL.createObjectURL(blob);
-                    downloadLink.download = `ISO_Feed_${Date.now()}.jsonl`;
+                    downloadLink.download = `ISO_Converted_${Date.now()}.jsonl`;
                     downloadLink.style.display = 'inline-block';
                     downloadLink.textContent = "Download Processed JSONL";
                     
-                    progressText.textContent = "Conversion Complete!";
+                    progressText.textContent = "Success!";
                 } catch (err) {
-                    console.error("Conversion failed:", err);
-                    progressText.textContent = "Error during conversion. Check console.";
+                    console.error(err);
+                    progressText.textContent = "Error during conversion.";
                 }
             };
-
             reader.readAsArrayBuffer(file);
         });
     }
 
-    // Run when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
