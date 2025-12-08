@@ -40,7 +40,7 @@ convertBtn.addEventListener('click', async () => {
         const progress = Math.min(100, Math.floor(((i + chunk.length) / jsonData.length) * 100));
         progressBar.style.width = `${progress}%`;
         progressText.textContent = `Processing: ${progress}%`;
-        await new Promise(r => setTimeout(r, 10)); // allow UI update
+        await new Promise(r => setTimeout(r, 10));
     }
 
     const blob = new Blob([outputLines.join('\n')], { type: 'application/json' });
@@ -77,8 +77,8 @@ function convertChunk(rows) {
         const lower = name.toLowerCase();
         const mapped = countryNameMap[lower] || name;
         try {
-            return countries.getAlpha2Code(mapped, "en") || mapped; // using global i18n-iso-countries
-        } catch (e) {
+            return countries.getAlpha2Code(mapped, "en") || mapped;
+        } catch(e) {
             return mapped;
         }
     }
@@ -139,7 +139,6 @@ function convertChunk(rows) {
         rec.lists = buildLists(row);
         rec.activeStatus = "Active";
 
-        // Key omission
         if (rec.type === "company") {
             delete rec.citizenshipCode;
             delete rec.residentOfCode;
@@ -148,7 +147,6 @@ function convertChunk(rows) {
             delete rec.countryOfRegistrationCode;
         }
 
-        // Remove empty keys
         for (const k of Object.keys(rec)) {
             if (rec[k] === null || (Array.isArray(rec[k]) && rec[k].length === 0) || rec[k] === '') {
                 delete rec[k];
