@@ -57,15 +57,7 @@ convertBtn.addEventListener('click', async () => {
 // ------------------- Conversion Logic -------------------
 function convertChunk(rows) {
 
-    // ------------------- Updated Country Mapping & ISO -------------------
-    // Requires i18n-iso-countries: https://www.npmjs.com/package/i18n-iso-countries
-    // Include via <script> or bundle if using Webpack
-    if (typeof countries === 'undefined') {
-        alert('Please include i18n-iso-countries library!');
-        return [];
-    }
-    countries.registerLocale(countries.getNames("en")); // make sure English names are available
-
+    // ------------------- Country Mapping & ISO -------------------
     const countryNameMap = {
         "russia": "Russian Federation", "united states": "United States",
         "united kingdom": "United Kingdom", "iran": "Iran, Islamic Republic of",
@@ -77,29 +69,21 @@ function convertChunk(rows) {
         "congo republic": "Congo", "macau": "Macao, S.A.R., China"
     };
 
+    // Make sure English locale is loaded
+    countries.registerLocale(countries.langs.en);
+
     function countryToISO(name) {
         if(!name) return null;
         const lower = name.toLowerCase().trim();
         const mapped = countryNameMap[lower] || name;
 
-        // Exact ISO alpha-2 lookup
         let code = countries.getAlpha2Code(mapped, "en");
         if(code) return code;
 
-        // Fallback: fuzzy search using string similarity (optional)
-        // Uncomment if you include string-similarity library
-        /*
-        const countryList = Object.values(countries.getNames("en"));
-        const match = stringSimilarity.findBestMatch(mapped, countryList);
-        if(match.bestMatch.rating > 0.6){ // threshold
-            return countries.getAlpha2Code(match.bestMatch.target, "en") || null;
-        }
-        */
-
-        return null; // return null if no ISO found
+        return null; // fallback if not found
     }
-    // ------------------- End Updated Country Mapping -------------------
 
+    // ------------------- Build Address -------------------
     function buildAddress(row){
         const country = countryToISO(row["Address Country"]);
         if(!country) return [];
@@ -110,6 +94,7 @@ function convertChunk(rows) {
         return [addr];
     }
 
+    // ------------------- Build Lists -------------------
     function buildLists(row){
         const parentId = "TRAE-Import-File";
         const parentName = "TRAE Import File";
@@ -137,6 +122,7 @@ function convertChunk(rows) {
         return lists;
     }
 
+    // ------------------- Process Rows -------------------
     const output = [];
 
     for(const row of rows){
@@ -156,7 +142,7 @@ function convertChunk(rows) {
         rec.lists = buildLists(row);
         rec.activeStatus = "Active";
 
-        // Key omission
+        // Key omission for person/company
         if(rec.type==="company"){
             delete rec.citizenshipCode;
             delete rec.residentOfCode;
@@ -178,6 +164,7 @@ function convertChunk(rows) {
     return output;
 }
 
+// ------------------- Format Date -------------------
 function formatDate(date){
     try{
         const d = new Date(date);
