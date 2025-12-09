@@ -1,87 +1,35 @@
 // --- SCRIPT.JS ---
-// Assumes countries.js defines: const COUNTRY_DATA = [{name:..., alpha2:...}, ...]
+// Assumes countries.js defines `COUNTRY_DATA` as { name: "...", alpha2: "..." }
 
 // --- BASIC UTILITIES ---
 function normalize(str) {
   return String(str || "").trim().toLowerCase();
 }
 
-function isEmptyValue(val) {
-  return (
-    val === undefined ||
-    val === null ||
-    (typeof val === "string" && val.trim() === "") ||
-    (Array.isArray(val) && val.length === 0) ||
-    (val.constructor === Object && Object.keys(val).length === 0)
-  );
+// --- COUNTRY ISO CONVERSION ---
+function countryToISO(country) {
+  if (!country) return null;
+  const value = normalize(country);
+  const match = COUNTRY_DATA.find(c => normalize(c.name) === value);
+  return match ? match.alpha2 : null;
 }
 
-// --- COUNTRY TO ISO (uses COUNTRY_DATA) ---
-function countryToIso(name) {
-  if (!name) return null;
-  const lower = normalize(name);
-  const entry = COUNTRY_DATA.find(c => normalize(c.name) === lower);
-  return entry ? entry.alpha2 : null;
+// --- DATE CONVERSION ---
+function formatDate(value) {
+  if (!value) return [];
+  const d = new Date(value);
+  if (isNaN(d)) return [];
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return [`${yyyy}-${mm}-${dd}`];
 }
 
-// --- TRANSFORMATIONS ---
-function transformRow(row) {
-  const out = {};
-
-  // 1. profileId
-  if ("PersonentityID" in row && !isEmptyValue(row["PersonentityID"])) {
-    out.profileId = "TRAE" + String(row["PersonentityID"]).trim();
-  }
-
-  // 2. type
-  if ("Record Type" in row && !isEmptyValue(row["Record Type"])) {
-    const t = String(row["Record Type"]).trim().toLowerCase();
-    out.type = t === "entity" ? "company" : t === "person" ? "person" : t;
-  }
-
-  // 3. action
-  if ("Action Type" in row && !isEmptyValue(row["Action Type"])) {
-    out.action = String(row["Action Type"]).trim();
-  }
-
-  // 4. name & profileNotes
-  if ("Primary Name" in row && !isEmptyValue(row["Primary Name"])) {
-    out.name = String(row["Primary Name"]).trim();
-  }
-  if ("TAE Profile Notes" in row && !isEmptyValue(row["TAE Profile Notes"])) {
-    out.profileNotes = String(row["TAE Profile Notes"]).trim();
-  }
-
-  // 5. gender & deceased
-  if ("Gender" in row && !isEmptyValue(row["Gender"])) out.gender = String(row["Gender"]).trim();
-  if ("Deceased" in row && !isEmptyValue(row["Deceased"])) out.deceased = String(row["Deceased"]).trim();
-
-  // 6. dateOfBirth -> dateOfBirthArray
-  if ("Date of Birth" in row && !isEmptyValue(row["Date of Birth"])) {
-    const d = new Date(row["Date of Birth"]);
-    if (!isNaN(d)) out.dateOfBirthArray = [d.toISOString().slice(0, 10)];
-  }
-
-  // 7. addresses
-  const countryCode = countryToIso(row["Address Country"]);
-  if (countryCode) {
-    const addr = { countryCode };
-    if (!isEmptyValue(row["Address Line"])) addr.line = String(row["Address Line"]).trim();
-    if (!isEmptyValue(row["Address City"])) addr.city = String(row["Address City"]).trim();
-    if (!isEmptyValue(row["Address State"])) addr.province = String(row["Address State"]).trim();
-    out.addresses = [addr];
-  }
-
-  // 8. citizenshipCode, residentOfCode, countryOfRegistrationCode
-  if (countryCode) {
-    out.citizenshipCode = [countryCode];
-    out.residentOfCode = [countryCode];
-    out.countryOfRegistrationCode = [countryCode];
-  }
-
-  // 9. lists (list_reference_details)
+// --- LIST REFERENCE DETAILS ---
+function buildLists(refString) {
   const parentId = "TRAE-Import-File";
   const parentName = "TRAE Import File";
+
   const finalLists = [{
     active: true,
     hierarchy: [{ id: parentId, name: parentName }],
@@ -89,36 +37,110 @@ function transformRow(row) {
     listActive: true,
     name: parentName
   }];
-  if ("list_reference_details" in row && !isEmptyValue(row["list_reference_details"])) {
-    const refs = String(row["list_reference_details"]).split("|").map(r => r.trim()).filter(r => r);
-    refs.forEach(ref => {
-      const childId = ref.toUpperCase().replace(/[\s\[\]\/:]/g, "-");
-      finalLists.push({
-        active: true,
-        hierarchy: [
-          { id: parentId, name: parentName },
-          { id: childId, name: ref, parent: parentId }
-        ],
-        id: childId,
-        listActive: true,
-        name: ref
-      });
-    });
-  }
-  out.lists = finalLists;
 
-  // 10. aliases
-  const aliasCols = Object.keys(row).filter(k => k.startsWith("Also Known As[") && k.endsWith("]"));
+  if (!refString || !refString.trim() || refString.toLowerCase() === "nan") return finalLists;
+
+  const refs = refString.split("|").map(r => r.trim()).filter(r => r);
+  refs.forEach(refName => {
+    const dynamicId = refName.toUpperCase()
+      .replace(/\s+/g, "-")
+      .replace(/[\[\]\/:]/g, "");
+    finalLists.push({
+      active: true,
+      hierarchy: [
+        { id: parentId, name: parentName },
+        { id: dynamicId, name: refName, parent: parentId }
+      ],
+      id: dynamicId,
+      listActive: true,
+      name: refName
+    });
+  });
+  return finalLists;
+}
+
+// --- ALIASES ---
+function buildAliases(row, aliasCols) {
   const aliases = [];
   aliasCols.forEach(col => {
-    if (!isEmptyValue(row[col])) aliases.push({ name: String(row[col]).trim() });
+    const value = row[col];
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      aliases.push({ name: String(value).trim() });
+    }
   });
-  if (aliases.length > 0) out.aliases = aliases;
+  return aliases.length ? aliases : undefined;
+}
 
-  // 11. activeStatus
+// --- TRANSFORM ROW ---
+function transformRow(row) {
+  const out = {};
+
+  // 1. profileId
+  if (row.PersonentityID !== undefined && row.PersonentityID !== null && String(row.PersonentityID).trim() !== "") {
+    out.profileId = "TRAE" + String(row.PersonentityID).trim();
+  }
+
+  // 2. type
+  let type = row["Record Type"];
+  if (type) {
+    const t = String(type).trim().toLowerCase();
+    out.type = t === "entity" ? "company" : t === "person" ? "person" : t;
+  }
+
+  // 3. Other direct mappings
+  const directMap = {
+    "Action Type": "action",
+    "Gender": "gender",
+    "Deceased": "deceased",
+    "Primary Name": "name",
+    "TAE Profile Notes": "profileNotes",
+    "Date of Birth": "dateOfBirthArray",
+    "List Reference Details": "lists"
+  };
+
+  for (const [key, mapped] of Object.entries(directMap)) {
+    if (row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== "") {
+      if (mapped === "dateOfBirthArray") {
+        out[mapped] = formatDate(row[key]);
+      } else if (mapped === "lists") {
+        out[mapped] = buildLists(row[key]);
+      } else {
+        out[mapped] = row[key];
+      }
+    }
+  }
+
+  // 4. Address
+  if (row["Address Country"] && String(row["Address Country"]).trim() !== "") {
+    const iso = countryToISO(row["Address Country"]);
+    if (iso) {
+      const addr = { countryCode: iso };
+      if (row["Address Line"] && String(row["Address Line"]).trim() !== "") addr.line = row["Address Line"];
+      if (row["Address City"] && String(row["Address City"]).trim() !== "") addr.city = row["Address City"];
+      if (row["Address State"] && String(row["Address State"]).trim() !== "") addr.province = row["Address State"];
+      out.addresses = [addr];
+    }
+  }
+
+  // 5. citizenshipCode / residentOfCode / countryOfRegistrationCode
+  if (row["Address Country"] && String(row["Address Country"]).trim() !== "") {
+    const iso = countryToISO(row["Address Country"]);
+    if (iso) {
+      out.citizenshipCode = [iso];
+      out.residentOfCode = [iso];
+      out.countryOfRegistrationCode = [iso];
+    }
+  }
+
+  // 6. aliases
+  const aliasCols = Object.keys(row).filter(c => c.startsWith("Also Known As[") && c.endsWith("]"));
+  const aliases = buildAliases(row, aliasCols);
+  if (aliases) out.aliases = aliases;
+
+  // 7. activeStatus
   out.activeStatus = "Active";
 
-  // 12. Conditional key omission
+  // 8. Conditional key omission
   if (out.type === "company") {
     delete out.citizenshipCode;
     delete out.residentOfCode;
@@ -127,31 +149,28 @@ function transformRow(row) {
     delete out.countryOfRegistrationCode;
   }
 
-  // 13. Remove any other empty fields
-  Object.keys(out).forEach(k => {
-    if (isEmptyValue(out[k])) delete out[k];
-  });
-
   return out;
 }
 
 // --- FILE HANDLING ---
 const fileInput = document.getElementById("fileInput");
 const convertBtn = document.getElementById("convertBtn");
-const progressText = document.getElementById("progressText");
 const downloadLink = document.getElementById("downloadLink");
+const progressText = document.getElementById("progressText");
 
 fileInput.addEventListener("change", () => {
   convertBtn.disabled = !fileInput.files.length;
-  progressText.textContent = fileInput.files.length ? "File selected: " + fileInput.files[0].name : "No file selected.";
+  progressText.textContent = fileInput.files.length ? `${fileInput.files[0].name} selected` : "No file selected";
 });
 
 convertBtn.addEventListener("click", () => {
   if (!fileInput.files.length) return;
   const file = fileInput.files[0];
   const reader = new FileReader();
+
   reader.onload = e => {
-    const wb = XLSX.read(e.target.result, { type: "binary" });
+    const data = new Uint8Array(e.target.result);
+    const wb = XLSX.read(data, { type: "array" });
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const json = XLSX.utils.sheet_to_json(sheet, { defval: null });
 
@@ -165,8 +184,8 @@ convertBtn.addEventListener("click", () => {
     downloadLink.textContent = "Download JSONL";
 
     progressText.textContent = "Conversion complete!";
-
     convertBtn.disabled = true;
   };
-  reader.readAsBinaryString(file);
+
+  reader.readAsArrayBuffer(file);
 });
