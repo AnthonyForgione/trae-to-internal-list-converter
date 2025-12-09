@@ -6,9 +6,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 
+  <!-- SheetJS (XLS/XLSX parser) -->
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+  <!-- ISO-3166 country library (used by both script versions) -->
   <script src="https://cdn.jsdelivr.net/npm/i18n-iso-countries@7.5.0/dist/index.min.js"></script>
 </head>
+
 <body>
 
   <div class="container">
@@ -37,6 +41,13 @@
     </section>
   </div>
 
+  <!-- Choose which parser you want to load -->
+  
+  <!-- Full version WITH fuzzy country matching -->
   <script src="script.js"></script>
+
+  <!-- OR: Simple version (no fuzzy) -->
+  <!-- <script src="script_simple.js"></script> -->
+
 </body>
 </html>
