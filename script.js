@@ -1,58 +1,87 @@
-// --- SCRIPT.JS FOR TRAE XLS TO JSONL ---
+// --- SCRIPT.JS ---
+// Assumes countries.js defines: const COUNTRY_DATA = [{name:..., alpha2:...}, ...]
 
-// --- Grab elements
-const fileInput = document.getElementById("fileInput");
-const convertBtn = document.getElementById("convertBtn");
-const progressText = document.getElementById("progressText");
-const downloadLink = document.getElementById("downloadLink");
-
-// --- Enable button on file select
-fileInput.addEventListener("change", () => {
-  convertBtn.disabled = fileInput.files.length === 0;
-  progressText.textContent = fileInput.files.length ? fileInput.files[0].name : "No file selected.";
-});
-
-// --- Utilities ---
-function isEmpty(value) {
-  return value === null || value === undefined || value === "" ||
-         (Array.isArray(value) && value.length === 0) ||
-         (typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0);
+// --- BASIC UTILITIES ---
+function normalize(str) {
+  return String(str || "").trim().toLowerCase();
 }
 
-function formatDateToISO(dateVal) {
-  if (!dateVal) return [];
-  const date = new Date(dateVal);
-  if (isNaN(date)) return [];
-  return [date.toISOString().slice(0, 10)]; // YYYY-MM-DD
+function isEmptyValue(val) {
+  return (
+    val === undefined ||
+    val === null ||
+    (typeof val === "string" && val.trim() === "") ||
+    (Array.isArray(val) && val.length === 0) ||
+    (val.constructor === Object && Object.keys(val).length === 0)
+  );
 }
 
-// --- Type transform
-function transformType(val) {
-  if (!val) return null;
-  const t = String(val).toLowerCase().trim();
-  if (t === "entity") return "company";
-  if (t === "person") return "person";
-  return val;
+// --- COUNTRY TO ISO (uses COUNTRY_DATA) ---
+function countryToIso(name) {
+  if (!name) return null;
+  const lower = normalize(name);
+  const entry = COUNTRY_DATA.find(c => normalize(c.name) === lower);
+  return entry ? entry.alpha2 : null;
 }
 
-// --- Address building
-function buildAddress(row) {
-  const country = row["Address Country"];
-  const iso = fuzzyCountryMatch(country);
-  if (!iso) return [];
-  const addr = { countryCode: iso };
-  if (row["Address Line"]) addr.line = String(row["Address Line"]).trim();
-  if (row["Address City"]) addr.city = String(row["Address City"]).trim();
-  if (row["Address State"]) addr.province = String(row["Address State"]).trim();
-  return [addr];
-}
+// --- TRANSFORMATIONS ---
+function transformRow(row) {
+  const out = {};
 
-// --- Lists building
-function buildLists(row) {
-  const refRaw = row["list_reference_details"];
+  // 1. profileId
+  if ("PersonentityID" in row && !isEmptyValue(row["PersonentityID"])) {
+    out.profileId = "TRAE" + String(row["PersonentityID"]).trim();
+  }
+
+  // 2. type
+  if ("Record Type" in row && !isEmptyValue(row["Record Type"])) {
+    const t = String(row["Record Type"]).trim().toLowerCase();
+    out.type = t === "entity" ? "company" : t === "person" ? "person" : t;
+  }
+
+  // 3. action
+  if ("Action Type" in row && !isEmptyValue(row["Action Type"])) {
+    out.action = String(row["Action Type"]).trim();
+  }
+
+  // 4. name & profileNotes
+  if ("Primary Name" in row && !isEmptyValue(row["Primary Name"])) {
+    out.name = String(row["Primary Name"]).trim();
+  }
+  if ("TAE Profile Notes" in row && !isEmptyValue(row["TAE Profile Notes"])) {
+    out.profileNotes = String(row["TAE Profile Notes"]).trim();
+  }
+
+  // 5. gender & deceased
+  if ("Gender" in row && !isEmptyValue(row["Gender"])) out.gender = String(row["Gender"]).trim();
+  if ("Deceased" in row && !isEmptyValue(row["Deceased"])) out.deceased = String(row["Deceased"]).trim();
+
+  // 6. dateOfBirth -> dateOfBirthArray
+  if ("Date of Birth" in row && !isEmptyValue(row["Date of Birth"])) {
+    const d = new Date(row["Date of Birth"]);
+    if (!isNaN(d)) out.dateOfBirthArray = [d.toISOString().slice(0, 10)];
+  }
+
+  // 7. addresses
+  const countryCode = countryToIso(row["Address Country"]);
+  if (countryCode) {
+    const addr = { countryCode };
+    if (!isEmptyValue(row["Address Line"])) addr.line = String(row["Address Line"]).trim();
+    if (!isEmptyValue(row["Address City"])) addr.city = String(row["Address City"]).trim();
+    if (!isEmptyValue(row["Address State"])) addr.province = String(row["Address State"]).trim();
+    out.addresses = [addr];
+  }
+
+  // 8. citizenshipCode, residentOfCode, countryOfRegistrationCode
+  if (countryCode) {
+    out.citizenshipCode = [countryCode];
+    out.residentOfCode = [countryCode];
+    out.countryOfRegistrationCode = [countryCode];
+  }
+
+  // 9. lists (list_reference_details)
   const parentId = "TRAE-Import-File";
   const parentName = "TRAE Import File";
-
   const finalLists = [{
     active: true,
     hierarchy: [{ id: parentId, name: parentName }],
@@ -60,134 +89,84 @@ function buildLists(row) {
     listActive: true,
     name: parentName
   }];
-
-  if (!refRaw || String(refRaw).toLowerCase() === "nan") return finalLists;
-
-  const refs = String(refRaw).split("|").map(r => r.trim()).filter(r => r);
-  refs.forEach(refName => {
-    const dynamicId = refName.toUpperCase()
-      .replace(/ /g, "-")
-      .replace(/\[|\]/g, "")
-      .replace(/\//g, "-")
-      .replace(/:/g, "");
-
-    finalLists.push({
-      active: true,
-      hierarchy: [
-        { id: parentId, name: parentName },
-        { id: dynamicId, name: refName, parent: parentId }
-      ],
-      id: dynamicId,
-      listActive: true,
-      name: refName
+  if ("list_reference_details" in row && !isEmptyValue(row["list_reference_details"])) {
+    const refs = String(row["list_reference_details"]).split("|").map(r => r.trim()).filter(r => r);
+    refs.forEach(ref => {
+      const childId = ref.toUpperCase().replace(/[\s\[\]\/:]/g, "-");
+      finalLists.push({
+        active: true,
+        hierarchy: [
+          { id: parentId, name: parentName },
+          { id: childId, name: ref, parent: parentId }
+        ],
+        id: childId,
+        listActive: true,
+        name: ref
+      });
     });
-  });
+  }
+  out.lists = finalLists;
 
-  return finalLists;
-}
-
-// --- Aliases building
-function buildAliases(row, aliasCols) {
+  // 10. aliases
+  const aliasCols = Object.keys(row).filter(k => k.startsWith("Also Known As[") && k.endsWith("]"));
   const aliases = [];
   aliasCols.forEach(col => {
-    if (row[col] && String(row[col]).trim() !== "") {
-      aliases.push({ name: String(row[col]).trim() });
-    }
+    if (!isEmptyValue(row[col])) aliases.push({ name: String(row[col]).trim() });
   });
-  return aliases;
-}
+  if (aliases.length > 0) out.aliases = aliases;
 
-// --- Main transform function
-function transformRow(row, aliasCols) {
-  const out = {};
-
-  // Field renaming
-  const MAPPINGS = {
-    "PersonentityID": "profileId",
-    "Record Type": "type",
-    "Action Type": "action",
-    "Gender": "gender",
-    "Deceased": "deceased",
-    "Primary Name": "name",
-    "TAE Profile Notes": "profileNotes",
-    "Date of Birth": "dateOfBirth",
-    "List Reference Details": "list_reference_details"
-  };
-
-  for (const key in MAPPINGS) {
-    if (row[key] !== undefined && row[key] !== null) {
-      out[MAPPINGS[key]] = row[key];
-    }
-  }
-
-  // --- Profile ID fix
-  if (out.profileId) out.profileId = "TRAE" + String(out.profileId).trim();
-
-  // --- Type
-  out.type = transformType(out.type);
-
-  // --- dateOfBirthArray
-  out.dateOfBirthArray = formatDateToISO(out.dateOfBirth);
-
-  // --- addresses
-  out.addresses = buildAddress(row);
-
-  // --- citizenship/residentOf/countryOfRegistration
-  const iso = fuzzyCountryMatch(row["Address Country"]);
-  out.citizenshipCode = iso ? [iso] : [];
-  out.residentOfCode = iso ? [iso] : [];
-  out.countryOfRegistrationCode = iso ? [iso] : [];
-
-  // --- lists
-  out.lists = buildLists(row);
-
-  // --- aliases
-  out.aliases = buildAliases(row, aliasCols);
-
-  // --- activeStatus
+  // 11. activeStatus
   out.activeStatus = "Active";
 
-  // --- Clean empty fields based on Python rules
-  const cleaned = {};
-  for (const k in out) {
-    if (out.type === "company" && ["citizenshipCode","residentOfCode","dateOfBirthArray"].includes(k)) continue;
-    if (out.type === "person" && k === "countryOfRegistrationCode") continue;
-    if (!isEmpty(out[k])) cleaned[k] = out[k];
+  // 12. Conditional key omission
+  if (out.type === "company") {
+    delete out.citizenshipCode;
+    delete out.residentOfCode;
+    delete out.dateOfBirthArray;
+  } else if (out.type === "person") {
+    delete out.countryOfRegistrationCode;
   }
 
-  return cleaned;
+  // 13. Remove any other empty fields
+  Object.keys(out).forEach(k => {
+    if (isEmptyValue(out[k])) delete out[k];
+  });
+
+  return out;
 }
 
-// --- Convert Button Handler
-convertBtn.addEventListener("click", () => {
-  const file = fileInput.files[0];
-  if (!file) {
-    alert("Please select a file.");
-    return;
-  }
+// --- FILE HANDLING ---
+const fileInput = document.getElementById("fileInput");
+const convertBtn = document.getElementById("convertBtn");
+const progressText = document.getElementById("progressText");
+const downloadLink = document.getElementById("downloadLink");
 
+fileInput.addEventListener("change", () => {
+  convertBtn.disabled = !fileInput.files.length;
+  progressText.textContent = fileInput.files.length ? "File selected: " + fileInput.files[0].name : "No file selected.";
+});
+
+convertBtn.addEventListener("click", () => {
+  if (!fileInput.files.length) return;
+  const file = fileInput.files[0];
   const reader = new FileReader();
   reader.onload = e => {
-    const data = new Uint8Array(e.target.result);
-    const wb = XLSX.read(data, { type: "array" });
+    const wb = XLSX.read(e.target.result, { type: "binary" });
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const json = XLSX.utils.sheet_to_json(sheet, { defval: null });
 
-    // --- Detect alias columns
-    const aliasCols = Object.keys(json[0] || {}).filter(c => c.startsWith("Also Known As[") && c.endsWith("]"));
-
-    const transformed = json.map(row => transformRow(row, aliasCols));
-
-    // --- JSONL
-    const jsonl = transformed.map(r => JSON.stringify(r)).join("\n");
+    const transformed = json.map(transformRow);
+    const jsonl = transformed.map(obj => JSON.stringify(obj)).join("\n");
     const blob = new Blob([jsonl], { type: "text/plain" });
 
     downloadLink.href = URL.createObjectURL(blob);
     downloadLink.download = "output.jsonl";
     downloadLink.style.display = "inline-block";
     downloadLink.textContent = "Download JSONL";
-    progressText.textContent = "Conversion complete!";
-  };
 
-  reader.readAsArrayBuffer(file);
+    progressText.textContent = "Conversion complete!";
+
+    convertBtn.disabled = true;
+  };
+  reader.readAsBinaryString(file);
 });
