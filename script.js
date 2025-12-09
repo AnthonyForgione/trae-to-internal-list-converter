@@ -1,98 +1,212 @@
-(function () {
-    // 1. REGISTER ISO DATA (Prevents the ReferenceError)
-    // The library loads into the global variable 'countries'
-    if (typeof countries !== 'undefined') {
-        // We register English data manually since we are using a CDN
-        countries.registerLocale(require("i18n-iso-countries/langs/en.json")); 
-    }
+// ----------------------------
+// script.js
+// ----------------------------
 
-    /**
-     * ISO Helper: Converts names to Alpha-2
-     */
-    function _to_iso_country(value) {
-        if (!value) return null;
-        const input = String(value).trim();
-        
-        // Return immediately if already ISO code
-        if (input.length === 2) return input.toUpperCase();
+// --- UTILITIES ---
+function isEmpty(value) {
+  if (value === undefined || value === null) return true;
+  if (typeof value === "string" && value.trim() === "") return true;
+  if (Array.isArray(value) && value.length === 0) return true;
+  if (typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0) return true;
+  return false;
+}
 
-        try {
-            // Attempt conversion using library
-            const code = countries.getAlpha2Code(input, 'en');
-            return code || input.substring(0, 2).toUpperCase();
-        } catch (e) {
-            return input.substring(0, 2).toUpperCase();
-        }
-    }
+function normalize(str) {
+  return String(str || "").trim().toLowerCase();
+}
 
-    function init() {
-        const fileInput = document.getElementById('fileInput');
-        const convertBtn = document.getElementById('convertBtn');
-        const progressText = document.getElementById('progressText');
-        const downloadLink = document.getElementById('downloadLink');
+function formatDateToISO(dateVal) {
+  if (!dateVal) return [];
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return [];
+  return [d.toISOString().split("T")[0]]; // YYYY-MM-DD
+}
 
-        // ENABLE BUTTON WHEN FILE PICKED
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                convertBtn.disabled = false;
-                progressText.textContent = "Selected: " + e.target.files[0].name;
-            } else {
-                convertBtn.disabled = true;
-            }
-        });
+// --- COUNTRY ISO LOOKUP ---
+function countryToISO(countryName) {
+  if (!countryName) return null;
+  const val = normalize(countryName);
 
-        // CONVERSION LOGIC
-        convertBtn.addEventListener('click', () => {
-            const file = fileInput.files[0];
-            const reader = new FileReader();
+  // Check map (COUNTRY_DATA should be defined in countries.js)
+  for (let c of COUNTRY_DATA) {
+    if (normalize(c.name) === val) return c.alpha2;
+    if (c.aliases && c.aliases.some(a => normalize(a) === val)) return c.alpha2;
+  }
 
-            progressText.textContent = "Converting...";
+  return null;
+}
 
-            reader.onload = function (e) {
-                try {
-                    const data = e.target.result;
-                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+// --- FIELD TRANSFORMATION ---
+function transformType(recordType) {
+  if (!recordType) return null;
+  const typeLower = normalize(recordType);
+  if (typeLower === "entity") return "company";
+  if (typeLower === "person") return "person";
+  return recordType;
+}
 
-                    const transformed = rows.map(row => {
-                        // Normalize header keys
-                        const clean = {};
-                        Object.keys(row).forEach(k => clean[k.replace(/^"+|"+$/g, '').trim()] = row[k]);
+function buildAddress(row) {
+  const isoCountry = countryToISO(row["Address Country"]);
+  if (!isoCountry) return [];
 
-                        return {
-                            objectType: 'client',
-                            clientId: clean['clientId'],
-                            name: clean['name'],
-                            incorporationCountryCode: _to_iso_country(clean['incorporationCountryCode']),
-                            addresses: clean['country'] ? [{
-                                countryCode: _to_iso_country(clean['country']),
-                                city: clean['city']
-                            }] : []
-                        };
-                    });
+  const address = { countryCode: isoCountry };
+  const optionalFields = {
+    line: row["Address Line"],
+    city: row["Address City"],
+    province: row["Address State"]
+  };
 
-                    const jsonl = transformed.map(line => JSON.stringify(line)).join('\n');
-                    const blob = new Blob([jsonl], { type: 'application/json' });
-                    
-                    downloadLink.href = URL.createObjectURL(blob);
-                    downloadLink.download = `ISO_Converted_${Date.now()}.jsonl`;
-                    downloadLink.style.display = 'inline-block';
-                    downloadLink.textContent = "Download Processed JSONL";
-                    
-                    progressText.textContent = "Success!";
-                } catch (err) {
-                    console.error(err);
-                    progressText.textContent = "Error during conversion.";
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        });
-    }
+  for (let key in optionalFields) {
+    if (!isEmpty(optionalFields[key])) address[key] = optionalFields[key].toString().trim();
+  }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
-})();
+  return [address];
+}
+
+function buildLists(row) {
+  const refRaw = row["list_reference_details"];
+  const refString = refRaw ? refRaw.toString().trim() : "";
+
+  const parentId = "TRAE-Import-File";
+  const parentName = "TRAE Import File";
+
+  const finalLists = [{
+    active: true,
+    hierarchy: [{ id: parentId, name: parentName }],
+    id: parentId,
+    listActive: true,
+    name: parentName
+  }];
+
+  if (!refString || refString.toLowerCase() === "nan") return finalLists;
+
+  const listRefs = refString.split("|").map(r => r.trim()).filter(r => r);
+
+  listRefs.forEach(refName => {
+    const dynamicId = refName.toUpperCase().replace(/ /g, "-").replace(/\[/g, "").replace(/\]/g, "").replace(/\//g, "-").replace(/:/g, "");
+    finalLists.push({
+      active: true,
+      hierarchy: [
+        { id: parentId, name: parentName },
+        { id: dynamicId, name: refName, parent: parentId }
+      ],
+      id: dynamicId,
+      listActive: true,
+      name: refName
+    });
+  });
+
+  return finalLists;
+}
+
+function buildAliases(row, aliasColumns) {
+  const aliases = [];
+  aliasColumns.forEach(col => {
+    const val = row[col];
+    if (!isEmpty(val)) aliases.push({ name: val.toString().trim() });
+  });
+  return aliases;
+}
+
+// --- MAIN TRANSFORMATION ---
+function transformRow(row, aliasColumns) {
+  const newRow = {};
+
+  // Profile ID
+  if (row["PersonentityID"]) newRow.profileId = "TRAE" + row["PersonentityID"].toString().trim();
+
+  // Direct mappings
+  const mappings = {
+    "Record Type": "type",
+    "Action Type": "action",
+    "Gender": "gender",
+    "Deceased": "deceased",
+    "Primary Name": "name",
+    "TAE Profile Notes": "profileNotes",
+    "Date of Birth": "dateOfBirth",
+    "List Reference Details": "list_reference_details"
+  };
+
+  for (let key in mappings) {
+    if (!isEmpty(row[key])) newRow[mappings[key]] = row[key];
+  }
+
+  // Type conversion
+  if (newRow.type) newRow.type = transformType(newRow.type);
+
+  // Date of birth
+  newRow.dateOfBirthArray = newRow.dateOfBirth ? formatDateToISO(newRow.dateOfBirth) : [];
+
+  // Addresses
+  newRow.addresses = buildAddress(row);
+
+  // Citizenship / residentOf / countryOfRegistrationCode
+  const isoCountry = countryToISO(row["Address Country"]);
+  newRow.citizenshipCode = isoCountry ? [isoCountry] : [];
+  newRow.residentOfCode = isoCountry ? [isoCountry] : [];
+  newRow.countryOfRegistrationCode = isoCountry ? [isoCountry] : [];
+
+  // Lists
+  newRow.lists = buildLists(row);
+
+  // Aliases
+  newRow.aliases = buildAliases(row, aliasColumns);
+
+  // Always active
+  newRow.activeStatus = "Active";
+
+  return newRow;
+}
+
+// --- JSONL EXPORT & CLEANUP ---
+function cleanRecord(record) {
+  const type = record.type;
+
+  // Conditional key omission
+  if (type === "company") {
+    delete record.citizenshipCode;
+    delete record.residentOfCode;
+    delete record.dateOfBirthArray;
+  } else if (type === "person") {
+    delete record.countryOfRegistrationCode;
+  }
+
+  // Remove empty keys
+  for (let key in record) {
+    if (["citizenshipCode", "residentOfCode", "countryOfRegistrationCode"].includes(key)) continue;
+    if (isEmpty(record[key])) delete record[key];
+  }
+
+  return record;
+}
+
+// --- FILE HANDLING ---
+document.getElementById("convertBtn").addEventListener("click", () => {
+  const file = document.getElementById("fileInput").files[0];
+  if (!file) return alert("Please upload a file");
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(e.target.result, { type: "binary" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(sheet);
+
+    // Detect alias columns
+    const aliasColumns = Object.keys(data[0] || {}).filter(c => c.startsWith("Also Known As[") && c.endsWith("]"));
+
+    // Transform rows
+    let transformed = data.map(r => transformRow(r, aliasColumns));
+    transformed = transformed.map(cleanRecord);
+
+    // Create JSONL
+    const lines = transformed.map(r => JSON.stringify(r)).join("\n");
+    const blob = new Blob([lines], { type: "text/plain" });
+
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "output.jsonl";
+    a.click();
+  };
+
+  reader.readAsBinaryString(file);
+});
